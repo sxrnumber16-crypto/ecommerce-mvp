@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int              @id @default(autoincrement())
+  email        String           @unique
+  passwordHash String
+  role         String           @default("customer")
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  profile      CustomerProfile?
+  addresses    Address[]
+  orders       Order[]
+  sessions     RefreshSession[]
+}
+
+model CustomerProfile {
+  id       Int     @id @default(autoincrement())
+  userId   Int     @unique
+  fullName String?
+  phone    String?
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Address {
+  id        Int     @id @default(autoincrement())
+  userId    Int
+  label     String?
+  line1     String
+  city      String
+  postal    String?
+  phone     String
+  isDefault Boolean @default(false)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders    Order[]
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  slug     String    @unique
+  icon     String?
+  sort     Int       @default(0)
+  products Product[]
+}
+
+model Product {
+  id          Int         @id @default(autoincrement())
+  categoryId  Int
+  name        String
+  slug        String      @unique
+  description String      @default("")
+  priceBdt    Int
+  stock       Int         @default(0)
+  imageUrl    String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  category    Category    @relation(fields: [categoryId], references: [id])
+  orderItems  OrderItem[]
+
+  @@index([categoryId])
+  @@index([isActive])
+}
+
+model Order {
+  id             Int         @id @default(autoincrement())
+  userId         Int
+  addressId      Int
+  subtotal       Int
+  deliveryFee    Int
+  total          Int
+  status         String      @default("pending")
+  idempotencyKey String      @unique
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  user           User        @relation(fields: [userId], references: [id])
+  address        Address     @relation(fields: [addressId], references: [id])
+  items          OrderItem[]
+  payment        Payment?
+
+  @@index([userId])
+  @@index([status])
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  name      String
+  unitPrice Int
+  qty       Int
+  lineTotal Int
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Payment {
+  id          Int     @id @default(autoincrement())
+  orderId     Int     @unique
+  method      String  @default("COD")
+  status      String  @default("unpaid")
+  amount      Int
+  providerRef String?
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model RefreshSession {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
