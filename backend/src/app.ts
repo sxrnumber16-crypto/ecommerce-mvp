@@ -5,6 +5,8 @@ import helmet from "helmet";
 import { authRouter } from "./routes/auth.js";
 import { catalogRouter } from "./routes/products.js";
 import { profileRouter } from "./routes/profile.js";
+import { checkoutRouter } from "./routes/checkout.js";
+import { ordersRouter } from "./routes/orders.js";
 
 export function createApp() {
   const app = express();
@@ -21,6 +23,8 @@ export function createApp() {
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1", catalogRouter);
   app.use("/api/v1", profileRouter);
+  app.use("/api/v1", checkoutRouter);
+  app.use("/api/v1", ordersRouter);
 
   // JSON error handler (must stay after routes; keeps GET /health intact).
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
