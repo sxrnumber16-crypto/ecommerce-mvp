@@ -3,6 +3,7 @@ import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import helmet from "helmet";
 import { authRouter } from "./routes/auth.js";
+import { catalogRouter } from "./routes/products.js";
 
 export function createApp() {
   const app = express();
@@ -17,6 +18,7 @@ export function createApp() {
 
   // Later tasks mount /api/v1 routers here (auth/catalog/checkout/admin).
   app.use("/api/v1/auth", authRouter);
+  app.use("/api/v1", catalogRouter);
 
   // JSON error handler (must stay after routes; keeps GET /health intact).
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
