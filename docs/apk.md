@@ -1,9 +1,12 @@
 # APK (mobile_app)
 
-> **APK NOT built here** — no Flutter/Android SDK on this machine
-> (`flutter` not recognized). Steps below are for a machine with the SDK.
+> **APK built via GitHub Actions CI** (2026-10-14, `app-release.apk` ~54MB,
+> API_BASE_URL=`https://ecommerce-mvp-production-f5e8.up.railway.app`).
+> Workflow: `.github/workflows/build-apk.yml` (manual Run workflow).
+> Artifact: Actions run → `shop-apk` → `app-release.apk`.
+> Install on phone: copy APK and open it (allow install-unknown-apps).
 
-## 1. Install tooling
+## 1. Install tooling (local build alternative)
 
 1. Install the **Flutter SDK** (3.12+) and accept licenses.
 2. Install **Android Studio + Android SDK + platform tools** (or command-line tools);
