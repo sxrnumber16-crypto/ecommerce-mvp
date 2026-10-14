@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'core/auth_store.dart';
 import 'core/config.dart';
+import 'design/theme.dart';
 import 'features/admin/admin_gate.dart';
 import 'features/admin/admin_screen.dart';
 import 'features/admin/orders_admin_screen.dart';
@@ -186,22 +187,10 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
-    final light = ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-    );
-    final dark = ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.teal,
-        brightness: Brightness.dark,
-      ),
-    );
     return MaterialApp.router(
       title: Config.storeName,
-      theme: light,
-      darkTheme: dark,
+      theme: buildLightTheme(),
+      darkTheme: buildDarkTheme(),
       routerConfig: router,
     );
   }
