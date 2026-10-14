@@ -82,7 +82,7 @@ class ApiClient {
 
           try {
             final refreshToken =
-                await storage.read(key: 'refreshToken');
+                await this.storage.read(key: 'refreshToken');
             if (refreshToken == null || refreshToken.isEmpty) {
               handler.next(err);
               return;
@@ -101,15 +101,15 @@ class ApiClient {
               handler.next(err);
               return;
             }
-            await storage.write(key: 'accessToken', value: newAccess);
+            await this.storage.write(key: 'accessToken', value: newAccess);
             if (newRefresh != null && newRefresh.isNotEmpty) {
-              await storage.write(key: 'refreshToken', value: newRefresh);
+              await this.storage.write(key: 'refreshToken', value: newRefresh);
             }
 
             err.requestOptions.headers['Authorization'] =
                 'Bearer $newAccess';
             err.requestOptions.extra['_retried'] = true;
-            final retryResp = await dio.fetch<dynamic>(err.requestOptions);
+            final retryResp = await this.dio.fetch<dynamic>(err.requestOptions);
             handler.resolve(retryResp);
           } on DioException catch (_) {
             handler.next(err);

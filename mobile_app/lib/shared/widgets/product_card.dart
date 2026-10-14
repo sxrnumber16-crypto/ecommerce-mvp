@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/config.dart';
-import '../catalog/models.dart';
+import '../../features/catalog/models.dart';
 
 /// Shared product tile: image, name, BDT price via [Config.bdt], stock badge.
 /// Taps navigate to `/product/:id`.
