@@ -117,18 +117,25 @@ class _AddressScreenState extends ConsumerState<AddressScreen> {
                   message: 'কোনো ঠিকানা নেই — নিচে যোগ করুন / No addresses yet',
                   icon: Icons.location_on_outlined,
                 )
-              else
-                for (final a in addresses)
-                  RadioListTile<int>(
-                    value: a.id,
+                else
+                  RadioGroup<int>(
                     groupValue: _selectedId,
                     onChanged: (v) => setState(() => _selectedId = v),
-                    title: Text('${a.label} — ${a.line1}'),
-                    subtitle: Text(
-                        '${a.city}${a.postal != null ? ' ${a.postal}' : ''} • ${a.phone}'),
-                    secondary: a.isDefault
-                        ? const Chip(label: Text('ডিফল্ট / Default'))
-                        : null,
+                    child: Column(
+                      children: [
+                        for (final a in addresses)
+                          RadioListTile<int>(
+                            value: a.id,
+                            title: Text('${a.label} — ${a.line1}'),
+                            subtitle: Text(
+                                '${a.city}${a.postal != null ? ' ${a.postal}' : ''} • ${a.phone}'),
+                            secondary: a.isDefault
+                                ? const Chip(
+                                    label: Text('ডিফল্ট / Default'))
+                                : null,
+                          ),
+                      ],
+                    ),
                   ),
               const Divider(height: 32),
               Text('নতুন ঠিকানা / New address',

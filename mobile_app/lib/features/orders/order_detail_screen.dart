@@ -69,7 +69,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                 else
                   Stepper(
                     currentStep: step < 0 ? 0 : step,
-                    controlsBuilder: (_, __) => const SizedBox.shrink(),
+                    controlsBuilder: (_, _) => const SizedBox.shrink(),
                     physics: const NeverScrollableScrollPhysics(),
                     steps: [
                       for (var i = 0; i < _flow.length; i++)

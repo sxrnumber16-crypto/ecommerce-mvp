@@ -63,16 +63,17 @@ class AddressApi {
     required String phone,
     bool? isDefault,
   }) async {
+    final data = <String, dynamic>{
+      'label': label,
+      'line1': line1,
+      'city': city,
+      'phone': phone,
+    };
+    if (postal != null && postal.isNotEmpty) data['postal'] = postal;
+    if (isDefault != null) data['isDefault'] = isDefault;
     final resp = await dio.post<dynamic>(
       '/addresses',
-      data: <String, dynamic>{
-        'label': label,
-        'line1': line1,
-        'city': city,
-        if (postal != null && postal.isNotEmpty) 'postal': postal,
-        'phone': phone,
-        if (isDefault != null) 'isDefault': isDefault,
-      },
+      data: data,
     );
     return Address.fromJson(resp.data as Map<String, dynamic>);
   }

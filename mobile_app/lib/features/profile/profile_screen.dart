@@ -121,9 +121,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           border: OutlineInputBorder(),
                         ),
                         validator: (v) =>
-                            v != null &&
-                                    v.trim().isNotEmpty &&
-                                    v.trim().length < 1
+                            v == null || v.trim().isEmpty
                                 ? 'নাম দিন / Enter name'
                                 : null,
                       ),

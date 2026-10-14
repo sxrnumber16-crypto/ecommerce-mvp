@@ -56,12 +56,12 @@ class ProfileApi {
   }
 
   Future<ProfileData> patch({String? fullName, String? phone}) async {
+    final data = <String, dynamic>{};
+    if (fullName != null) data['fullName'] = fullName;
+    if (phone != null) data['phone'] = phone;
     final resp = await dio.patch<dynamic>(
       '/profile',
-      data: <String, dynamic>{
-        if (fullName != null) 'fullName': fullName,
-        if (phone != null) 'phone': phone,
-      },
+      data: data,
     );
     return ProfileData.fromJson(resp.data as Map<String, dynamic>);
   }

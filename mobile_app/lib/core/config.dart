@@ -29,6 +29,6 @@ class Config {
       }
       buffer.write(digits[i]);
     }
-    return '${negative ? '-' : ''}৳${buffer}';
+    return '${negative ? '-' : ''}৳$buffer';
   }
 }

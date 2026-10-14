@@ -236,11 +236,13 @@ class AuthStore extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    final logoutData = <String, dynamic>{};
     final rt = state.refreshToken;
+    if (rt != null) logoutData['refreshToken'] = rt;
     try {
       await api.dio.post<dynamic>(
         '/auth/logout',
-        data: <String, dynamic>{if (rt != null) 'refreshToken': rt},
+        data: logoutData,
       );
     } catch (_) {
       // Server logout is best-effort; always clear locally.
