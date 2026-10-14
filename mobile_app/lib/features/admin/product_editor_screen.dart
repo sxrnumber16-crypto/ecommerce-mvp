@@ -41,6 +41,15 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   bool _catTouched = false;
   String? _loadError;
   Product? _product;
+  // Customer `GET /products/:id` is active-only, so a just-deactivated
+  // product 404s here even though admin `PATCH /admin/products/:id` still
+  // works (see `backend/src/routes/admin.ts`: `findUnique` without an
+  // `isActive` filter). `_notFound` marks that case so the editor can offer
+  // admin re-activation (`PATCH {isActive:true}` then reload) instead of a
+  // dead-end error. `_product` + controllers are kept as the last-known
+  // cached copy so the form still renders for re-activation.
+  bool _notFound = false;
+  bool _reactivating = false;
 
   bool get _isEdit => widget.productId != null;
 
@@ -65,6 +74,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
     setState(() {
       _loading = true;
       _loadError = null;
+      _notFound = false;
     });
     try {
       final p =
@@ -78,10 +88,47 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
       _description.text = p.description;
       _categoryId = p.categoryId;
       _isActive = p.isActive;
+    } on DioException catch (e) {
+      // Active-only customer detail 404s for inactive products, but we still
+      // have admin context (product id from route arg / admin list). Keep the
+      // cached `_product`/controllers untouched so the form can still render.
+      if (e.response?.statusCode == 404 && _isEdit) {
+        _notFound = true;
+        _loadError =
+            'নিষ্ক্রিয় পণ্য / Inactive product — re-activate to edit';
+      } else {
+        _loadError = friendlyError(e);
+      }
     } catch (e) {
       _loadError = friendlyError(e);
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// Admin fallback: `PATCH /admin/products/:id {isActive:true}` works
+  /// regardless of the active flag, then reload the customer detail.
+  Future<void> _reactivate() async {
+    if (!_isEdit) return;
+    setState(() => _reactivating = true);
+    try {
+      await ref
+          .read(adminApiProvider)
+          .updateProduct(widget.productId!, <String, dynamic>{'isActive': true});
+      if (!mounted) return;
+      setState(() {
+        _isActive = true;
+        _notFound = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('সক্রিয় করা হয়েছে / Re-activated')));
+      await _load();
+    } on DioException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    } finally {
+      if (mounted) setState(() => _reactivating = false);
     }
   }
 
@@ -185,7 +232,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
         ),
         body: _loading
             ? const LoadingState()
-            : _loadError != null
+            : (_loadError != null && !(_notFound && _isEdit))
                 ? ErrorState(message: _loadError!, onRetry: _load)
                 : FutureBuilder<List<Category>>(
                     future: ref.read(catalogApiProvider).categories(),
@@ -196,6 +243,35 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                         child: ListView(
                           padding: const EdgeInsets.all(16),
                           children: [
+                            // Customer GET 404s for inactive products; the id
+                            // is still valid admin context, so offer admin
+                            // re-activation (PATCH {isActive:true} + reload).
+                            // Cached controllers/_product are kept, so the
+                            // form still renders for re-activation.
+                            if (_notFound && _isEdit) ...[
+                              Card(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Text(
+                                    _loadError ??
+                                        'নিষ্ক্রিয় পণ্য / Inactive product',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              FilledButton.tonalIcon(
+                                onPressed: _reactivating ? null : _reactivate,
+                                icon: const Icon(
+                                    Icons.visibility_outlined),
+                                label: Text(_reactivating
+                                    ? 'সক্রিয় হচ্ছে… / Re-activating…'
+                                    : 'সক্রিয় / Re-activate'),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
                             TextFormField(
                               controller: _name,
                               decoration: const InputDecoration(
