@@ -36,6 +36,9 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
+      - name: Widget tests
+        run: flutter test
+
       - name: Build release APK
         run: flutter build apk --release --dart-define API_BASE_URL=https://ecommerce-mvp-production-f5e8.up.railway.app
 
