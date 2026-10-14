@@ -3,6 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth_store.dart';
+import '../../core/config.dart';
+import '../../design/components/app_button.dart';
+import '../../design/components/app_input.dart';
+import '../../design/components/app_scaffold.dart';
+import '../../design/tokens/app_radius.dart';
+import '../../design/tokens/app_space.dart';
+import '../../design/tokens/app_text.dart';
 
 bool _isValidEmail(String v) =>
     RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim());
@@ -42,73 +49,95 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authStoreProvider);
-    return Scaffold(
-      appBar: AppBar(title: const Text('লগইন / Login')),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _form,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextFormField(
-                  controller: _email,
-                  keyboardType: TextInputType.emailAddress,
-                  autofillHints: const [AutofillHints.email],
-                  decoration: const InputDecoration(
-                    labelText: 'ইমেইল / Email',
-                    border: OutlineInputBorder(),
+    final scheme = Theme.of(context).colorScheme;
+    return AppScaffold(
+      title: 'লগইন / Login',
+      body: SingleChildScrollView(
+        child: Form(
+          key: _form,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpace.xl),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [scheme.primary, scheme.secondary],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  validator: (v) => _isValidEmail(v ?? '')
-                      ? null
-                      : 'সঠিক ইমেইল দিন / Enter a valid email',
+                  borderRadius: BorderRadius.circular(AppRadius.card),
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _password,
-                  obscureText: _obscure,
-                  autofillHints: const [AutofillHints.password],
-                  decoration: InputDecoration(
-                    labelText: 'পাসওয়ার্ড / Password',
-                    border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      icon: Icon(_obscure
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined),
-                      onPressed: () => setState(() => _obscure = !_obscure),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.storefront_outlined,
+                      size: 40,
+                      color: scheme.onPrimary,
                     ),
-                  ),
-                  validator: (v) => (v ?? '').isEmpty
-                      ? 'পাসওয়ার্ড দিন / Enter your password'
-                      : null,
+                    const SizedBox(height: AppSpace.m),
+                    Text(
+                      Config.storeName,
+                      style: AppText.headline(context).copyWith(
+                        color: scheme.onPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.s),
+                    Text(
+                      'স্বাগতম / Welcome back',
+                      style: AppText.body(context).copyWith(
+                        color: scheme.onPrimary.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ],
                 ),
-                if (auth.error != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    auth.error!,
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.error),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: auth.isLoading ? null : _submit,
-                  child: auth.isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('লগইন / Login'),
+              ),
+              const SizedBox(height: AppSpace.xl),
+              AppInput(
+                controller: _email,
+                label: 'ইমেইল / Email',
+                keyboardType: TextInputType.emailAddress,
+                autofillHints: const [AutofillHints.email],
+                validator: (v) => _isValidEmail(v ?? '')
+                    ? null
+                    : 'সঠিক ইমেইল দিন / Enter a valid email',
+              ),
+              const SizedBox(height: AppSpace.l),
+              AppInput(
+                controller: _password,
+                label: 'পাসওয়ার্ড / Password',
+                obscure: _obscure,
+                autofillHints: const [AutofillHints.password],
+                suffixIcon: IconButton(
+                  icon: Icon(_obscure
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined),
+                  onPressed: () => setState(() => _obscure = !_obscure),
                 ),
-                TextButton(
-                  onPressed: () => context.go('/register'),
-                  child: const Text(
-                      'অ্যাকাউন্ট নেই? রেজিস্টার করুন / Create account'),
+                validator: (v) => (v ?? '').isEmpty
+                    ? 'পাসওয়ার্ড দিন / Enter your password'
+                    : null,
+              ),
+              if (auth.error != null) ...[
+                const SizedBox(height: AppSpace.m),
+                Text(
+                  auth.error!,
+                  style: TextStyle(color: scheme.error),
                 ),
               ],
-            ),
+              const SizedBox(height: AppSpace.xl),
+              AppButton(
+                label: 'লগইন / Login',
+                loading: auth.isLoading,
+                onPressed: _submit,
+              ),
+              TextButton(
+                onPressed: () => context.go('/register'),
+                child: const Text(
+                    'অ্যাকাউন্ট নেই? রেজিস্টার করুন / Create account'),
+              ),
+            ],
           ),
         ),
       ),

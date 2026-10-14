@@ -14,6 +14,8 @@ class AppInput extends StatelessWidget {
     this.obscure = false,
     this.keyboardType = TextInputType.text,
     this.validator,
+    this.suffixIcon,
+    this.autofillHints,
   });
 
   final TextEditingController? controller;
@@ -21,6 +23,8 @@ class AppInput extends StatelessWidget {
   final bool obscure;
   final TextInputType keyboardType;
   final String? Function(String?)? validator;
+  final Widget? suffixIcon;
+  final Iterable<String>? autofillHints;
 
   @override
   Widget build(BuildContext context) {
@@ -32,8 +36,10 @@ class AppInput extends StatelessWidget {
       obscureText: obscure,
       keyboardType: keyboardType,
       validator: validator,
+      autofillHints: autofillHints,
       decoration: InputDecoration(
         labelText: label,
+        suffixIcon: suffixIcon,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpace.l,
           vertical: AppSpace.m,

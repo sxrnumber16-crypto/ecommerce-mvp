@@ -4,6 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/auth_store.dart';
 import '../../core/config.dart';
+import '../../design/components/app_scaffold.dart';
+import '../../design/tokens/app_radius.dart';
+import '../../design/tokens/app_space.dart';
+import '../../design/tokens/app_text.dart';
 
 /// Splash: restores the session, then `→ /home` if authenticated,
 /// else `→ /onboarding`.
@@ -34,14 +38,41 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final scheme = Theme.of(context).colorScheme;
+    return AppScaffold(
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(Config.storeName,
-                style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(AppSpace.xl),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [scheme.primary, scheme.secondary],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(AppRadius.card),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.storefront_outlined,
+                    size: 56,
+                    color: scheme.onPrimary,
+                  ),
+                  const SizedBox(height: AppSpace.m),
+                  Text(
+                    Config.storeName,
+                    style: AppText.display(context).copyWith(
+                      color: scheme.onPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpace.xl),
             const CircularProgressIndicator(),
           ],
         ),

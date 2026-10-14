@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/config.dart';
+import '../../design/components/app_button.dart';
+import '../../design/components/app_card.dart';
+import '../../design/components/app_scaffold.dart';
+import '../../design/tokens/app_radius.dart';
+import '../../design/tokens/app_space.dart';
+import '../../design/tokens/app_text.dart';
 
 /// Static first-run onboarding with a Skip path to `/login`.
 class OnboardingScreen extends StatelessWidget {
@@ -9,7 +15,7 @@ class OnboardingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final scheme = Theme.of(context).colorScheme;
     const steps = <({IconData icon, String title, String sub})>[
       (
         icon: Icons.storefront_outlined,
@@ -27,43 +33,87 @@ class OnboardingScreen extends StatelessWidget {
         sub: 'Track every order from pending to delivered',
       ),
     ];
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(Config.storeName),
-        actions: [
-          TextButton(
+    return AppScaffold(
+      title: Config.storeName,
+      actions: [
+        TextButton(
+          onPressed: () => context.go('/login'),
+          child: const Text('স্কিপ / Skip'),
+        ),
+      ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpace.xl),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [scheme.primary, scheme.secondary],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(AppRadius.card),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.shopping_bag_outlined,
+                  size: 40,
+                  color: scheme.onPrimary,
+                ),
+                const SizedBox(height: AppSpace.m),
+                Text(
+                  'স্বাগতম / Welcome',
+                  style: AppText.headline(context).copyWith(
+                    color: scheme.onPrimary,
+                  ),
+                ),
+                const SizedBox(height: AppSpace.s),
+                Text(
+                  'Shop local, pay on delivery',
+                  style: AppText.body(context).copyWith(
+                    color: scheme.onPrimary.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpace.l),
+          for (final s in steps) ...[
+            AppCard(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpace.m),
+                child: Row(
+                  children: [
+                    Icon(s.icon, size: 40, color: scheme.primary),
+                    const SizedBox(width: AppSpace.l),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(s.title, style: AppText.title(context)),
+                          const SizedBox(height: AppSpace.s),
+                          Text(s.sub, style: AppText.body(context)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpace.m),
+          ],
+          const Spacer(),
+          AppButton(
+            label: 'শুরু করুন / Get started',
             onPressed: () => context.go('/login'),
-            child: const Text('স্কিপ / Skip'),
+          ),
+          TextButton(
+            onPressed: () => context.go('/register'),
+            child: const Text('নতুন অ্যাকাউন্ট / Create account'),
           ),
         ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            for (final s in steps) ...[
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(s.icon,
-                    size: 40, color: theme.colorScheme.primary),
-                title: Text(s.title,
-                    style: theme.textTheme.titleMedium),
-                subtitle: Text(s.sub),
-              ),
-              const SizedBox(height: 8),
-            ],
-            const Spacer(),
-            FilledButton(
-              onPressed: () => context.go('/login'),
-              child: const Text('শুরু করুন / Get started'),
-            ),
-            TextButton(
-              onPressed: () => context.go('/register'),
-              child:
-                  const Text('নতুন অ্যাকাউন্ট / Create account'),
-            ),
-          ],
-        ),
       ),
     );
   }
