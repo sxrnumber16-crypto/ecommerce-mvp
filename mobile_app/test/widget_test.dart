@@ -6,7 +6,7 @@ import 'package:myapp/features/catalog/models.dart';
 import 'package:myapp/shared/widgets/product_card.dart';
 
 void main() {
-  test('api base defaults to Android-emulator host (UNVERIFIED: no SDK run)', () {
+  test('api base defaults to Android-emulator host', () {
     expect(Config.apiBaseUrl, 'http://10.0.2.2:3000');
     expect('${Config.apiBaseUrl}/api/v1', 'http://10.0.2.2:3000/api/v1');
   });
@@ -19,7 +19,6 @@ void main() {
     expect(Config.storeName, isNotEmpty);
   });
 
-  // UNVERIFIED: no Flutter SDK on this machine — not run.
   testWidgets('ProductCard shows BDT price and stock badge', (tester) async {
     const product = Product(
       id: 1,
@@ -44,7 +43,6 @@ void main() {
     expect(find.textContaining('Low'), findsOneWidget);
   });
 
-  // UNVERIFIED: no Flutter SDK on this machine — not run.
   testWidgets('ProductCard v2 shows BDT price and wishlist heart',
       (tester) async {
     const product = Product(

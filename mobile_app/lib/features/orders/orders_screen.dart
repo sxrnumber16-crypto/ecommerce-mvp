@@ -6,6 +6,7 @@ import '../../core/config.dart';
 import '../../design/components/app_card.dart';
 import '../../design/components/app_chip.dart';
 import '../../design/components/state_views.dart';
+import '../../design/tokens/app_colors.dart';
 import '../../design/tokens/app_radius.dart';
 import '../../design/tokens/app_space.dart';
 import '../../design/tokens/app_text.dart';
@@ -18,13 +19,13 @@ Color _statusColor(BuildContext context, String status) {
   final scheme = Theme.of(context).colorScheme;
   switch (status) {
     case 'pending':
-      return const Color(0xFFB45309);
+      return AppColors.price;
     case 'confirmed':
       return scheme.primary;
     case 'shipped':
       return scheme.secondary;
     case 'delivered':
-      return const Color(0xFF15803D);
+      return AppColors.success;
     case 'cancelled':
       return scheme.error;
     default:
