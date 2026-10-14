@@ -1,21 +1,32 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/config.dart';
-import '../../shared/widgets/error_state.dart';
-import '../../shared/widgets/loading_state.dart';
+import '../../design/components/app_button.dart';
+import '../../design/components/app_card.dart';
+import '../../design/components/state_views.dart';
+import '../../design/tokens/app_radius.dart';
+import '../../design/tokens/app_space.dart';
+import '../../design/tokens/app_text.dart';
+import '../../shared/widgets/error_state.dart' show friendlyError;
 import '../catalog/catalog_api.dart';
 import '../catalog/models.dart';
 import 'address_api.dart';
 import 'cart_store.dart';
 import 'checkout_api.dart';
 
-/// Checkout: order summary with freshly refetched server prices, selected
-/// address, and COD `POST /checkout`. Prices are never sent — only
+/// Checkout reskin: order summary with freshly refetched server prices,
+/// selected address, and COD `POST /checkout`.
+///
+/// Payload contract is unchanged — prices are never sent, only
 /// `{addressId, items: [{productId, qty}], idempotencyKey}` (uuid v4,
-/// generated once per screen so retries replay idempotently).
+/// generated once per screen so retries replay idempotently; see
+/// [CheckoutApi.place]). The summary [AppCard] renders server figures
+/// only; `deliveryFee`/`total` still come only from the `POST
+/// /checkout` response. New look only.
 class CheckoutScreen extends ConsumerStatefulWidget {
   final int addressId;
 
@@ -93,31 +104,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final lines = ref.watch(cartStoreProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('চেকআউট / Checkout')),
       body: lines.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('কার্ট খালি / Cart is empty'),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: () => context.go('/cart'),
-                    child: const Text('কার্টে ফিরুন / Back to cart'),
-                  ),
-                ],
-              ),
+          ? EmptyView(
+              message: 'কার্ট খালি / Cart is empty',
+              actionLabel: 'কার্টে ফিরুন / Back to cart',
+              onAction: () => context.go('/cart'),
             )
           : FutureBuilder<({Address? address, List<Product> priced})>(
               future: _future,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const LoadingState();
+                  return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  return ErrorState(
+                  return ErrorView(
                     message: friendlyError(snapshot.error!),
                     onRetry: _reload,
                   );
@@ -129,68 +133,177 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   preview += (byId[l.product.id]?.priceBdt ?? 0) * l.qty;
                 }
                 return ListView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpace.l),
                   children: [
                     Text('অর্ডার সামারি / Order summary',
-                        style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 8),
+                        style: AppText.title(context)),
+                    const SizedBox(height: AppSpace.s),
                     for (final l in lines)
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(byId[l.product.id]?.name ?? l.product.name),
-                        subtitle: Text(
-                            '×${l.qty} • ${Config.bdt(byId[l.product.id]?.priceBdt ?? 0)}'),
-                        trailing: Text(Config.bdt(
-                            (byId[l.product.id]?.priceBdt ?? 0) * l.qty)),
+                      Padding(
+                        padding:
+                            const EdgeInsets.only(bottom: AppSpace.s),
+                        child: AppCard(
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.all(AppSpace.m),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 48,
+                                  height: 48,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(
+                                        AppRadius.card),
+                                    child: _Thumb(
+                                        url: (byId[l.product.id]
+                                                    ?.imageUrl ??
+                                                l.product.imageUrl)
+                                            ?.trim()),
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpace.m),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        byId[l.product.id]?.name ??
+                                            l.product.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppText.title(context),
+                                      ),
+                                      const SizedBox(
+                                          height: AppSpace.xs),
+                                      Text(
+                                        '×${l.qty} • ${Config.bdt(byId[l.product.id]?.priceBdt ?? 0)}',
+                                        style: AppText.body(context)
+                                            .copyWith(
+                                                color: scheme
+                                                    .onSurfaceVariant),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  Config.bdt(
+                                      (byId[l.product.id]?.priceBdt ??
+                                              0) *
+                                          l.qty),
+                                  style: AppText.price(context),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                    const Divider(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('পণ্য মোট / Items:'),
-                        Text(Config.bdt(preview)),
-                      ],
+                    const SizedBox(height: AppSpace.s),
+                    AppCard(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpace.l),
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('পণ্য মোট / Items:',
+                                    style: AppText.title(context)),
+                                Text(
+                                  Config.bdt(preview),
+                                  style: AppText.price(context).copyWith(
+                                      color: scheme.primary),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSpace.s),
+                            Text(
+                              'ডেলিভারি ফি + সর্বমোট সার্ভার হিসাব করবে / Delivery fee and total are calculated by the server',
+                              style: AppText.body(context).copyWith(
+                                fontStyle: FontStyle.italic,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'ডেলিভারি ফি + সর্বমোট সার্ভার হিসাব করবে / Delivery fee and total are calculated by the server',
-                      style: TextStyle(fontStyle: FontStyle.italic),
-                    ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpace.l),
                     Text('ডেলিভারি ঠিকানা / Deliver to',
-                        style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 4),
-                    Text(data.address == null
-                        ? 'ঠিকানা পাওয়া যায়নি / Address not found'
-                        : '${data.address!.label} — ${data.address!.line1}, ${data.address!.city} • ${data.address!.phone}'),
-                    const SizedBox(height: 16),
-                    const Text('ক্যাশ অন ডেলিভারি / Cash on Delivery (COD)'),
+                        style: AppText.title(context)),
+                    const SizedBox(height: AppSpace.s),
+                    AppCard(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpace.l),
+                        child: Row(
+                          children: [
+                            Icon(Icons.location_on_outlined,
+                                color: scheme.primary),
+                            const SizedBox(width: AppSpace.s),
+                            Expanded(
+                              child: Text(
+                                data.address == null
+                                    ? 'ঠিকানা পাওয়া যায়নি / Address not found'
+                                    : '${data.address!.label} — ${data.address!.line1}, ${data.address!.city} • ${data.address!.phone}',
+                                style: AppText.body(context),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.l),
+                    Text(
+                      'ক্যাশ অন ডেলিভারি / Cash on Delivery (COD)',
+                      style: AppText.title(context),
+                    ),
                     if (_placeError != null) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpace.s),
                       Text(
                         friendlyError(_placeError!),
-                        style: TextStyle(
-                            color: Theme.of(context).colorScheme.error),
+                        style: AppText.body(context)
+                            .copyWith(color: scheme.error),
                       ),
                     ],
-                    const SizedBox(height: 16),
-                    FilledButton(
+                    const SizedBox(height: AppSpace.m),
+                    AppButton(
+                      label: 'অর্ডার করুন / Place order (COD)',
+                      loading: _placing,
                       onPressed: (_placing || data.address == null)
                           ? null
                           : _place,
-                      child: _placing
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2),
-                            )
-                          : const Text('অর্ডার করুন / Place order (COD)'),
                     ),
                   ],
                 );
               },
             ),
+    );
+  }
+}
+
+class _Thumb extends StatelessWidget {
+  const _Thumb({required this.url});
+
+  final String? url;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final u = (url ?? '').trim();
+    if (u.isEmpty) {
+      return Container(
+        color: scheme.surfaceContainerHighest,
+        child: const Icon(Icons.image_outlined),
+      );
+    }
+    return CachedNetworkImage(
+      imageUrl: u,
+      fit: BoxFit.cover,
+      errorWidget: (context, url, error) =>
+          const Icon(Icons.image_outlined),
     );
   }
 }

@@ -2,14 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../shared/widgets/empty_state.dart';
-import '../../shared/widgets/error_state.dart';
-import '../../shared/widgets/loading_state.dart';
+import '../../design/components/app_button.dart';
+import '../../design/components/app_card.dart';
+import '../../design/components/app_chip.dart';
+import '../../design/components/app_input.dart';
+import '../../design/components/state_views.dart';
+import '../../design/tokens/app_space.dart';
+import '../../design/tokens/app_text.dart';
+import '../../shared/widgets/error_state.dart' show friendlyError;
 import 'address_api.dart';
 
-/// Address step: `GET /addresses` list with default pre-selected +
-/// `POST /addresses` form (`label`/`line1`/`city`/`phone`, `postal` optional).
-/// Continue pushes `/cart/checkout?addressId=<id>`.
+/// Address step reskin.
+///
+/// Data flow is identical to the legacy screen: `GET /addresses` list
+/// with the default (server-ordered first) pre-selected, `POST
+/// /addresses` form (`label`/`line1`/`city`/`phone`, `postal` optional),
+/// and continue via `push('/cart/checkout?addressId=<id>')`. The
+/// [RadioGroup]/[RadioListTile] selection pattern is kept. New look
+/// only: address [AppCard]s, an [AppCard] form with [AppInput] fields,
+/// and [AppButton] actions.
 class AddressScreen extends ConsumerStatefulWidget {
   const AddressScreen({super.key});
 
@@ -97,131 +108,131 @@ class _AddressScreenState extends ConsumerState<AddressScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const LoadingState();
+            return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return ErrorState(
+            return ErrorView(
               message: friendlyError(snapshot.error!),
               onRetry: _reload,
             );
           }
           final addresses = snapshot.data!;
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpace.l),
             children: [
               Text('ঠিকানা বেছে নিন / Choose address',
-                  style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
+                  style: AppText.title(context)),
+              const SizedBox(height: AppSpace.s),
               if (addresses.isEmpty)
-                const EmptyState(
-                  message: 'কোনো ঠিকানা নেই — নিচে যোগ করুন / No addresses yet',
-                  icon: Icons.location_on_outlined,
+                const EmptyView(
+                  message:
+                      'কোনো ঠিকানা নেই — নিচে যোগ করুন / No addresses yet',
                 )
-                else
-                  RadioGroup<int>(
-                    groupValue: _selectedId,
-                    onChanged: (v) => setState(() => _selectedId = v),
-                    child: Column(
-                      children: [
-                        for (final a in addresses)
-                          RadioListTile<int>(
-                            value: a.id,
-                            title: Text('${a.label} — ${a.line1}'),
-                            subtitle: Text(
-                                '${a.city}${a.postal != null ? ' ${a.postal}' : ''} • ${a.phone}'),
-                            secondary: a.isDefault
-                                ? const Chip(
-                                    label: Text('ডিফল্ট / Default'))
-                                : null,
+              else
+                RadioGroup<int>(
+                  groupValue: _selectedId,
+                  onChanged: (v) => setState(() => _selectedId = v),
+                  child: Column(
+                    children: [
+                      for (final a in addresses)
+                        Padding(
+                          padding: const EdgeInsets.only(
+                              bottom: AppSpace.s),
+                          child: AppCard(
+                            child: RadioListTile<int>(
+                              value: a.id,
+                              title: Text(
+                                '${a.label} — ${a.line1}',
+                                style: AppText.title(context),
+                              ),
+                              subtitle: Text(
+                                '${a.city}${a.postal != null ? ' ${a.postal}' : ''} • ${a.phone}',
+                                style: AppText.body(context),
+                              ),
+                              secondary: a.isDefault
+                                  ? const AppChip(
+                                      label: 'ডিফল্ট / Default',
+                                      selected: true,
+                                    )
+                                  : null,
+                            ),
                           ),
+                        ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: AppSpace.m),
+              Text('নতুন ঠিকানা / New address',
+                  style: AppText.title(context)),
+              const SizedBox(height: AppSpace.s),
+              AppCard(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpace.l),
+                  child: Form(
+                    key: _form,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AppInput(
+                          controller: _label,
+                          label: 'লেবেল / Label (home)',
+                        ),
+                        const SizedBox(height: AppSpace.m),
+                        AppInput(
+                          controller: _line1,
+                          label: 'ঠিকানা / Line 1',
+                          validator: (v) => (v ?? '').trim().isEmpty
+                              ? 'ঠিকানা দিন / Enter street address'
+                              : null,
+                        ),
+                        const SizedBox(height: AppSpace.m),
+                        AppInput(
+                          controller: _city,
+                          label: 'শহর / City',
+                          validator: (v) => (v ?? '').trim().isEmpty
+                              ? 'শহর দিন / Enter city'
+                              : null,
+                        ),
+                        const SizedBox(height: AppSpace.m),
+                        AppInput(
+                          controller: _postal,
+                          label: 'পোস্টাল / Postal (optional)',
+                          keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(height: AppSpace.m),
+                        AppInput(
+                          controller: _phone,
+                          label: 'ফোন / Phone',
+                          keyboardType: TextInputType.phone,
+                          validator: (v) => (v ?? '').trim().isEmpty
+                              ? 'ফোন দিন / Enter phone'
+                              : null,
+                        ),
+                        CheckboxListTile(
+                          value: _isDefault,
+                          onChanged: (v) =>
+                              setState(() => _isDefault = v ?? false),
+                          title:
+                              const Text('ডিফল্ট করুন / Make default'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        AppButton(
+                          label: 'ঠিকানা যোগ করুন / Add address',
+                          loading: _saving,
+                          onPressed: _saving ? null : _add,
+                        ),
                       ],
                     ),
                   ),
-              const Divider(height: 32),
-              Text('নতুন ঠিকানা / New address',
-                  style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              Form(
-                key: _form,
-                child: Column(
-                  children: [
-                    TextFormField(
-                      controller: _label,
-                      decoration: const InputDecoration(
-                        labelText: 'লেবেল / Label (home)',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _line1,
-                      decoration: const InputDecoration(
-                        labelText: 'ঠিকানা / Line 1',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => (v ?? '').trim().isEmpty
-                          ? 'ঠিকানা দিন / Enter street address'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _city,
-                      decoration: const InputDecoration(
-                        labelText: 'শহর / City',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => (v ?? '').trim().isEmpty
-                          ? 'শহর দিন / Enter city'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _postal,
-                      decoration: const InputDecoration(
-                        labelText: 'পোস্টাল / Postal (optional)',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _phone,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        labelText: 'ফোন / Phone',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => (v ?? '').trim().isEmpty
-                          ? 'ফোন দিন / Enter phone'
-                          : null,
-                    ),
-                    CheckboxListTile(
-                      value: _isDefault,
-                      onChanged: (v) =>
-                          setState(() => _isDefault = v ?? false),
-                      title: const Text('ডিফল্ট করুন / Make default'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    FilledButton.tonal(
-                      onPressed: _saving ? null : _add,
-                      child: _saving
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('ঠিকানা যোগ করুন / Add address'),
-                    ),
-                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              FilledButton(
+              const SizedBox(height: AppSpace.l),
+              AppButton(
+                label: 'এগিয়ে যান / Continue',
                 onPressed: _selectedId == null
                     ? null
                     : () => context
                         .push('/cart/checkout?addressId=$_selectedId'),
-                child: const Text('এগিয়ে যান / Continue'),
               ),
             ],
           );
