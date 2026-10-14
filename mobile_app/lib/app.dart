@@ -4,6 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import 'core/auth_store.dart';
 import 'core/config.dart';
+import 'features/admin/admin_gate.dart';
+import 'features/admin/admin_screen.dart';
+import 'features/admin/orders_admin_screen.dart';
+import 'features/admin/product_editor_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
 import 'features/cart/address_screen.dart';
@@ -20,10 +24,12 @@ import 'features/orders/orders_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/splash/splash_screen.dart';
 
-/// App router. Shell holds the 5 bottom-nav tabs; `/admin` stays hidden
-/// from the bar and redirects to `/home` unless `role == admin`.
+/// App router. Shell holds the bottom-nav tabs (5 customer tabs + an
+/// Admin tab visible only when `role == admin`); `/admin` sub-routes
+/// redirect to `/home` unless `role == admin`.
 /// Sub-routes live inside the shell so the nav bar persists:
-/// `/product/:id`, `/cart/address`, `/cart/checkout`, `/orders/:id`, etc.
+/// `/product/:id`, `/cart/address`, `/cart/checkout`, `/orders/:id`,
+/// `/admin/products/new`, `/admin/products/:id/edit`, `/admin/orders`.
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authStoreProvider);
   return GoRouter(
@@ -134,11 +140,41 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/profile',
             builder: (context, state) => const ProfileScreen(),
           ),
+          GoRoute(
+            path: '/admin',
+            builder: (context, state) => const AdminGate(
+              fallback: AdminDenied(),
+              child: AdminScreen(),
+            ),
+            routes: <RouteBase>[
+              GoRoute(
+                path: 'products/new',
+                builder: (context, state) => const AdminGate(
+                  fallback: AdminDenied(),
+                  child: ProductEditorScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'products/:id/edit',
+                builder: (context, state) => AdminGate(
+                  fallback: const AdminDenied(),
+                  child: ProductEditorScreen(
+                    productId: int.tryParse(
+                            state.pathParameters['id'] ?? '') ??
+                        0,
+                  ),
+                ),
+              ),
+              GoRoute(
+                path: 'orders',
+                builder: (context, state) => const AdminGate(
+                  fallback: AdminDenied(),
+                  child: OrdersAdminScreen(),
+                ),
+              ),
+            ],
+          ),
         ],
-      ),
-      GoRoute(
-        path: '/admin',
-        builder: (context, state) => const AdminScreen(),
       ),
     ],
   );
@@ -184,12 +220,19 @@ class ScaffoldWithNav extends ConsumerWidget {
     '/profile',
   ];
 
-  int _indexFor(String loc) {
+  static const _adminPath = '/admin';
+
+  List<String> _pathsFor(bool isAdmin) =>
+      isAdmin ? [..._paths, _adminPath] : _paths;
+
+  int _indexFor(String loc, int count) {
     // /product/* belongs to the Search tab visually; checkout flow + order
     // detail keep their parent tab highlighted via prefix match below.
+    // /admin/* always highlights the Admin tab when present.
     if (loc == '/product' || loc.startsWith('/product/')) return 1;
-    for (var i = 0; i < _paths.length; i++) {
-      if (loc == _paths[i] || loc.startsWith('${_paths[i]}/')) return i;
+    final paths = count > _paths.length ? [..._paths, _adminPath] : _paths;
+    for (var i = 0; i < paths.length; i++) {
+      if (loc == paths[i] || loc.startsWith('${paths[i]}/')) return i;
     }
     return 0;
   }
@@ -197,13 +240,15 @@ class ScaffoldWithNav extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = GoRouterState.of(context).uri.toString();
-    final index = _indexFor(loc);
+    final isAdmin = ref.watch(authStoreProvider).isAdmin;
+    final paths = _pathsFor(isAdmin);
+    final index = _indexFor(loc, paths.length).clamp(0, paths.length - 1);
     final cartCount = ref.watch(cartCountProvider);
     return Scaffold(
       body: child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
-        onDestinationSelected: (i) => context.go(_paths[i]),
+        onDestinationSelected: (i) => context.go(paths[i]),
         destinations: <Widget>[
           const NavigationDestination(
               icon: Icon(Icons.home_outlined),
@@ -228,22 +273,13 @@ class ScaffoldWithNav extends ConsumerWidget {
               icon: Icon(Icons.person_outline),
               selectedIcon: Icon(Icons.person),
               label: 'Profile'),
+          if (isAdmin)
+            const NavigationDestination(
+                icon: Icon(Icons.admin_panel_settings_outlined),
+                selectedIcon: Icon(Icons.admin_panel_settings),
+                label: 'Admin'),
         ],
       ),
-    );
-  }
-}
-
-// --- Admin placeholder (real panel lands in Task 10) ---
-
-class AdminScreen extends StatelessWidget {
-  const AdminScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Admin')),
-      body: const Center(child: Text('Admin panel lands in a later task.')),
     );
   }
 }
