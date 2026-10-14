@@ -234,6 +234,109 @@ describe("admin", () => {
     }
   });
 
+  test("dashboard revenue excludes cancelled orders", async () => {
+    const cust = await register();
+    const addr = await createAddress(cust.accessToken);
+    const cat = await prisma.category.findUniqueOrThrow({ where: { slug: "clothing" } });
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+    const prod = await prisma.product.create({
+      data: {
+        name: `Admin-Rev-${suffix}`,
+        slug: `admin-rev-${suffix}`,
+        description: "revenue test",
+        priceBdt: 1000,
+        stock: 20,
+        categoryId: cat.id,
+        isActive: true,
+      },
+    });
+    const dash = (t: string) =>
+      request(app).get("/api/v1/admin/dashboard").set("Authorization", `Bearer ${t}`);
+    let orderId = 0;
+    let orderTotal = 0;
+    try {
+      const before = await dash(adminToken);
+      expect(before.status).toBe(200);
+      const revBefore = (before.body.revenue ?? before.body.totalRevenue) as number;
+
+      const co = await request(app)
+        .post("/api/v1/checkout")
+        .set("Authorization", `Bearer ${cust.accessToken}`)
+        .send({
+          addressId: addr.id,
+          items: [{ productId: prod.id, qty: 2 }],
+          idempotencyKey: uniqKey("revdash"),
+        });
+      expect(co.status).toBe(201);
+      orderId = co.body.id;
+      orderTotal = co.body.total as number;
+
+      const afterCreate = await dash(adminToken);
+      expect(afterCreate.status).toBe(200);
+      const revAfterCreate = (afterCreate.body.revenue ?? afterCreate.body.totalRevenue) as number;
+      expect(revAfterCreate).toBe(revBefore + orderTotal);
+
+      const cancel = await request(app)
+        .patch(`/api/v1/admin/orders/${orderId}/status`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ status: "cancelled" });
+      expect(cancel.status).toBe(200);
+
+      const afterCancel = await dash(adminToken);
+      expect(afterCancel.status).toBe(200);
+      const revAfterCancel = (afterCancel.body.revenue ?? afterCancel.body.totalRevenue) as number;
+      expect(revAfterCancel).toBe(revBefore);
+    } finally {
+      if (orderId) {
+        await prisma.payment.deleteMany({ where: { orderId } }).catch(() => {});
+        await prisma.orderItem.deleteMany({ where: { orderId } }).catch(() => {});
+        await prisma.order.delete({ where: { id: orderId } }).catch(() => {});
+      }
+      await prisma.product.delete({ where: { id: prod.id } }).catch(() => {});
+    }
+  });
+
+  test("dashboard lowStock lists only active products", async () => {
+    const cat = await prisma.category.findUniqueOrThrow({ where: { slug: "clothing" } });
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+    const active = await prisma.product.create({
+      data: {
+        name: `Admin-Low-Active-${suffix}`,
+        slug: `admin-low-active-${suffix}`,
+        description: "low active",
+        priceBdt: 100,
+        stock: 2,
+        categoryId: cat.id,
+        isActive: true,
+      },
+    });
+    const inactive = await prisma.product.create({
+      data: {
+        name: `Admin-Low-Inactive-${suffix}`,
+        slug: `admin-low-inactive-${suffix}`,
+        description: "low inactive",
+        priceBdt: 100,
+        stock: 1,
+        categoryId: cat.id,
+        isActive: false,
+      },
+    });
+    try {
+      const res = await request(app)
+        .get("/api/v1/admin/dashboard")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(res.status).toBe(200);
+      const low = res.body.lowStock as Array<any>;
+      expect(Array.isArray(low)).toBe(true);
+      const ids = low.map((p: any) => p.id);
+      expect(ids).toContain(active.id);
+      expect(ids).not.toContain(inactive.id);
+    } finally {
+      await prisma.product.delete({ where: { id: active.id } }).catch(() => {});
+      await prisma.product.delete({ where: { id: inactive.id } }).catch(() => {});
+    }
+  });
+
   test("invalid product 404", async () => {
     const upd = await request(app)
       .patch("/api/v1/admin/products/99999999")

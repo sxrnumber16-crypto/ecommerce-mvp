@@ -61,16 +61,26 @@ authRouter.post("/register", async (req: Request, res: Response) => {
 
   const passwordHash = await hashPassword(password);
   // Public register is always customer — any `role` in body is ignored (zod strips it).
-  const user = await prisma.user.create({
-    data: {
-      email,
-      passwordHash,
-      role: "customer",
-      ...(fullName !== undefined || phone !== undefined
-        ? { profile: { create: { fullName: fullName ?? null, phone: phone ?? null } } }
-        : {}),
-    },
-  });
+  let user;
+  try {
+    user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        role: "customer",
+        ...(fullName !== undefined || phone !== undefined
+          ? { profile: { create: { fullName: fullName ?? null, phone: phone ?? null } } }
+          : {}),
+      },
+    });
+  } catch (err: any) {
+    // Race: concurrent registers passed the findUnique check — unique constraint wins.
+    if (err?.code === "P2002") {
+      res.status(409).json({ error: "email already registered" });
+      return;
+    }
+    throw err;
+  }
 
   const refreshToken = signRefreshToken(user.id);
   await prisma.refreshSession.create({

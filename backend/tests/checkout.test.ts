@@ -233,6 +233,91 @@ describe("checkout+orders COD", () => {
     }
   });
 
+  test("duplicate productIds aggregate into single line item", async () => {
+    const { accessToken } = await register();
+    const addr = await createAddress(accessToken);
+    const prod = await createProduct({ priceBdt: 400, stock: 20 });
+    let orderId = 0;
+    try {
+      const res = await request(app)
+        .post("/api/v1/checkout")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({
+          addressId: addr.id,
+          items: [
+            { productId: prod.id, qty: 2 },
+            { productId: prod.id, qty: 3 },
+          ],
+          idempotencyKey: uniqKey("dupagg"),
+        });
+      expect(res.status).toBe(201);
+      expect(res.body.items).toHaveLength(1);
+      expect(res.body.items[0].productId).toBe(prod.id);
+      expect(res.body.items[0].qty).toBe(5);
+      expect(res.body.items[0].lineTotal).toBe(400 * 5);
+      expect(res.body.subtotal).toBe(400 * 5);
+      orderId = res.body.id;
+      const after = (await prisma.product.findUniqueOrThrow({ where: { id: prod.id } })).stock;
+      expect(after).toBe(15);
+    } finally {
+      if (orderId) {
+        await prisma.payment.deleteMany({ where: { orderId } }).catch(() => {});
+        await prisma.orderItem.deleteMany({ where: { orderId } }).catch(() => {});
+        await prisma.order.delete({ where: { id: orderId } }).catch(() => {});
+      }
+      await prisma.product.delete({ where: { id: prod.id } }).catch(() => {});
+    }
+  });
+
+  test("duplicate productIds summing over stock returns 409 without decrement", async () => {
+    const { accessToken } = await register();
+    const addr = await createAddress(accessToken);
+    const prod = await createProduct({ priceBdt: 250, stock: 5 });
+    try {
+      const res = await request(app)
+        .post("/api/v1/checkout")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({
+          addressId: addr.id,
+          items: [
+            { productId: prod.id, qty: 3 },
+            { productId: prod.id, qty: 3 },
+          ],
+          idempotencyKey: uniqKey("dupover"),
+        });
+      expect(res.status).toBe(409);
+      expect(JSON.stringify(res.body).toLowerCase()).toContain("insufficient");
+      const after = (await prisma.product.findUniqueOrThrow({ where: { id: prod.id } })).stock;
+      expect(after).toBe(5);
+    } finally {
+      await prisma.product.delete({ where: { id: prod.id } }).catch(() => {});
+    }
+  });
+
+  test("duplicate productIds summing over 10 returns 400", async () => {
+    const { accessToken } = await register();
+    const addr = await createAddress(accessToken);
+    const prod = await createProduct({ priceBdt: 100, stock: 50 });
+    try {
+      const res = await request(app)
+        .post("/api/v1/checkout")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({
+          addressId: addr.id,
+          items: [
+            { productId: prod.id, qty: 6 },
+            { productId: prod.id, qty: 5 },
+          ],
+          idempotencyKey: uniqKey("dupcap"),
+        });
+      expect(res.status).toBe(400);
+      const after = (await prisma.product.findUniqueOrThrow({ where: { id: prod.id } })).stock;
+      expect(after).toBe(50);
+    } finally {
+      await prisma.product.delete({ where: { id: prod.id } }).catch(() => {});
+    }
+  });
+
   test("order history + detail tracking (own only)", async () => {
     const { accessToken, user } = await register();
     const addr = await createAddress(accessToken);

@@ -38,6 +38,19 @@ describe("auth", () => {
     expect(second.status).toBe(409);
   });
 
+  test("register concurrent duplicate race returns one 201 + one 409 (P2002 path)", async () => {
+    const email = uniq("race");
+    const payload = { email, password: "Password123!" };
+    const [a, b] = await Promise.all([
+      request(app).post("/api/v1/auth/register").send(payload),
+      request(app).post("/api/v1/auth/register").send(payload),
+    ]);
+    const statuses = [a.status, b.status].sort();
+    expect(statuses).toEqual([201, 409]);
+    const loser = a.status === 409 ? a : b;
+    expect(JSON.stringify(loser.body).toLowerCase()).toContain("already");
+  });
+
   test("login ok with valid credentials", async () => {
     const email = uniq("login");
     await request(app).post("/api/v1/auth/register").send({ email, password: "Password123!" });

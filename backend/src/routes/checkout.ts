@@ -40,7 +40,20 @@ checkoutRouter.post("/checkout", async (req: Request, res: Response) => {
     return;
   }
   const userId = req.user!.id;
-  const { addressId, items, idempotencyKey } = parsed.data;
+  const { addressId, items: rawItems, idempotencyKey } = parsed.data;
+
+  // Aggregate duplicate productIds: sum qty per product, cap summed total at 10.
+  const qtyByProduct = new Map<number, number>();
+  for (const it of rawItems) {
+    qtyByProduct.set(it.productId, (qtyByProduct.get(it.productId) ?? 0) + it.qty);
+  }
+  for (const [, totalQty] of qtyByProduct) {
+    if (totalQty > 10) {
+      res.status(400).json({ error: "validation", details: "duplicate items exceed max qty 10 per product" });
+      return;
+    }
+  }
+  const items = [...qtyByProduct.entries()].map(([productId, qty]) => ({ productId, qty }));
 
   try {
     const result = await prisma.$transaction(async (tx) => {

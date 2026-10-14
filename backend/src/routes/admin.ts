@@ -60,12 +60,12 @@ adminRouter.get("/dashboard", async (_req: Request, res: Response) => {
     prisma.product.count({ where: { isActive: true } }),
     prisma.order.groupBy({ by: ["status"], _count: { status: true } }),
     prisma.product.findMany({
-      where: { stock: { lte: 5 } },
+      where: { stock: { lte: 5 }, isActive: true },
       orderBy: { stock: "asc" },
       take: 20,
       select: { id: true, name: true, slug: true, stock: true, priceBdt: true, isActive: true },
     }),
-    prisma.order.aggregate({ _sum: { total: true } }),
+    prisma.order.aggregate({ where: { status: { not: "cancelled" } }, _sum: { total: true } }),
   ]);
 
   const ordersByStatus: Record<string, number> = {};
