@@ -4,9 +4,26 @@ import 'package:go_router/go_router.dart';
 
 import 'core/auth_store.dart';
 import 'core/config.dart';
+import 'features/auth/login_screen.dart';
+import 'features/auth/register_screen.dart';
+import 'features/cart/address_screen.dart';
+import 'features/cart/cart_screen.dart';
+import 'features/cart/cart_store.dart';
+import 'features/cart/checkout_screen.dart';
+import 'features/cart/confirmation_screen.dart';
+import 'features/catalog/product_detail_screen.dart';
+import 'features/catalog/search_screen.dart';
+import 'features/home/home_screen.dart';
+import 'features/onboarding/onboarding_screen.dart';
+import 'features/orders/order_detail_screen.dart';
+import 'features/orders/orders_screen.dart';
+import 'features/profile/profile_screen.dart';
+import 'features/splash/splash_screen.dart';
 
 /// App router. Shell holds the 5 bottom-nav tabs; `/admin` stays hidden
 /// from the bar and redirects to `/home` unless `role == admin`.
+/// Sub-routes live inside the shell so the nav bar persists:
+/// `/product/:id`, `/cart/address`, `/cart/checkout`, `/orders/:id`, etc.
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authStoreProvider);
   return GoRouter(
@@ -22,6 +39,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       const authedPrefixes = <String>[
         '/home',
         '/search',
+        '/product',
         '/cart',
         '/orders',
         '/profile',
@@ -63,15 +81,54 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/search',
-            builder: (context, state) => const SearchScreen(),
+            builder: (context, state) => SearchScreen(
+              initialCategory: state.uri.queryParameters['category'],
+            ),
+          ),
+          GoRoute(
+            path: '/product/:id',
+            builder: (context, state) => ProductDetailScreen(
+              productId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+            ),
           ),
           GoRoute(
             path: '/cart',
             builder: (context, state) => const CartScreen(),
+            routes: <RouteBase>[
+              GoRoute(
+                path: 'address',
+                builder: (context, state) => const AddressScreen(),
+              ),
+              GoRoute(
+                path: 'checkout',
+                builder: (context, state) => CheckoutScreen(
+                  addressId: int.tryParse(
+                          state.uri.queryParameters['addressId'] ?? '') ??
+                      0,
+                ),
+              ),
+              GoRoute(
+                path: 'confirmation/:orderId',
+                builder: (context, state) => ConfirmationScreen(
+                  orderId: int.tryParse(
+                          state.pathParameters['orderId'] ?? '') ??
+                      0,
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: '/orders',
             builder: (context, state) => const OrdersScreen(),
+            routes: <RouteBase>[
+              GoRoute(
+                path: ':id',
+                builder: (context, state) => OrderDetailScreen(
+                  orderId:
+                      int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: '/profile',
@@ -114,8 +171,8 @@ class MyApp extends ConsumerWidget {
   }
 }
 
-/// Bottom-nav shell. Cart tab shows a badge (count wired in later tasks).
-class ScaffoldWithNav extends StatelessWidget {
+/// Bottom-nav shell. Cart tab badge reflects [cartCountProvider].
+class ScaffoldWithNav extends ConsumerWidget {
   final Widget child;
   const ScaffoldWithNav({super.key, required this.child});
 
@@ -128,6 +185,9 @@ class ScaffoldWithNav extends StatelessWidget {
   ];
 
   int _indexFor(String loc) {
+    // /product/* belongs to the Search tab visually; checkout flow + order
+    // detail keep their parent tab highlighted via prefix match below.
+    if (loc == '/product' || loc.startsWith('/product/')) return 1;
     for (var i = 0; i < _paths.length; i++) {
       if (loc == _paths[i] || loc.startsWith('${_paths[i]}/')) return i;
     }
@@ -135,31 +195,36 @@ class ScaffoldWithNav extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final loc = GoRouterState.of(context).uri.toString();
     final index = _indexFor(loc);
+    final cartCount = ref.watch(cartCountProvider);
     return Scaffold(
       body: child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: (i) => context.go(_paths[i]),
-        destinations: const <Widget>[
-          NavigationDestination(
+        destinations: <Widget>[
+          const NavigationDestination(
               icon: Icon(Icons.home_outlined),
               selectedIcon: Icon(Icons.home),
               label: 'Home'),
-          NavigationDestination(
+          const NavigationDestination(
               icon: Icon(Icons.search_outlined),
               selectedIcon: Icon(Icons.search),
               label: 'Search'),
           NavigationDestination(
-              icon: Badge(label: Text('0'), child: Icon(Icons.shopping_cart)),
+              icon: Badge(
+                label: Text('$cartCount'),
+                isLabelVisible: cartCount > 0,
+                child: const Icon(Icons.shopping_cart),
+              ),
               label: 'Cart'),
-          NavigationDestination(
+          const NavigationDestination(
               icon: Icon(Icons.receipt_long_outlined),
               selectedIcon: Icon(Icons.receipt_long),
               label: 'Orders'),
-          NavigationDestination(
+          const NavigationDestination(
               icon: Icon(Icons.person_outline),
               selectedIcon: Icon(Icons.person),
               label: 'Profile'),
@@ -169,211 +234,7 @@ class ScaffoldWithNav extends StatelessWidget {
   }
 }
 
-// --- Placeholder screens (real UI lands in later tasks) ---
-
-class SplashScreen extends ConsumerStatefulWidget {
-  const SplashScreen({super.key});
-
-  @override
-  ConsumerState<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends ConsumerState<SplashScreen> {
-  @override
-  void initState() {
-    super.initState();
-    Future.microtask(() async {
-      try {
-        await ref.read(authStoreProvider.notifier).loadFromStorage();
-      } catch (_) {}
-      if (!mounted) return;
-      final auth = ref.read(authStoreProvider);
-      if (auth.isAuthenticated) {
-        context.go('/home');
-      } else {
-        context.go('/onboarding');
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(Config.storeName, style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 16),
-            const CircularProgressIndicator(),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class OnboardingScreen extends StatelessWidget {
-  const OnboardingScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(Config.storeName)),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Welcome — onboarding lands in a later task.'),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () => context.go('/login'),
-              child: const Text('Get started'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Login form lands in a later task.'),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () => context.go('/home'),
-              child: const Text('Continue (placeholder)'),
-            ),
-            TextButton(
-              onPressed: () => context.go('/register'),
-              child: const Text('Create account'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class RegisterScreen extends StatelessWidget {
-  const RegisterScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Register')),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Register form lands in a later task.'),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () => context.go('/home'),
-              child: const Text('Continue (placeholder)'),
-            ),
-            TextButton(
-              onPressed: () => context.go('/login'),
-              child: const Text('Have an account? Log in'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(Config.storeName)),
-      body: const Center(child: Text('Home catalog lands in a later task.')),
-    );
-  }
-}
-
-class SearchScreen extends StatelessWidget {
-  const SearchScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Search')),
-      body: const Center(child: Text('Search lands in a later task.')),
-    );
-  }
-}
-
-class CartScreen extends StatelessWidget {
-  const CartScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Cart')),
-      body: const Center(child: Text('Cart lands in a later task.')),
-    );
-  }
-}
-
-class OrdersScreen extends StatelessWidget {
-  const OrdersScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Orders')),
-      body: const Center(child: Text('Orders land in a later task.')),
-    );
-  }
-}
-
-class ProfileScreen extends ConsumerWidget {
-  const ProfileScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authStoreProvider);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Role: ${auth.role ?? 'unknown'}'),
-            const SizedBox(height: 12),
-            if (auth.isAdmin)
-              FilledButton.tonal(
-                onPressed: () => context.go('/admin'),
-                child: const Text('Admin'),
-              ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () async {
-                await ref.read(authStoreProvider.notifier).logout();
-                if (context.mounted) context.go('/login');
-              },
-              child: const Text('Logout'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// --- Admin placeholder (real panel lands in Task 10) ---
 
 class AdminScreen extends StatelessWidget {
   const AdminScreen({super.key});
