@@ -4,6 +4,33 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'config.dart';
 
+/// Builds a Dio without auth interceptors for `/auth/refresh` calls.
+///
+/// Shares the same `baseUrl`, 15s timeouts, JSON `Content-Type`, and
+/// error-only logging as [ApiClient] so refresh calls stay consistent
+/// whether issued from the 401 interceptor or [AuthStore.refresh].
+Dio buildUnauthenticatedDio({String? baseUrl}) {
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: baseUrl ?? '${Config.apiBaseUrl}/api/v1',
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+      headers: const <String, dynamic>{'Content-Type': 'application/json'},
+    ),
+  );
+  dio.interceptors.add(
+    LogInterceptor(
+      request: false,
+      requestHeader: false,
+      requestBody: false,
+      responseHeader: false,
+      responseBody: false,
+      error: true,
+    ),
+  );
+  return dio;
+}
+
 /// Shared Dio client for `Config.apiBaseUrl + /api/v1`.
 ///
 /// Interceptors:
@@ -62,16 +89,7 @@ class ApiClient {
             }
 
             // Separate Dio without interceptors to avoid refresh loops.
-            final refreshDio = Dio(
-              BaseOptions(
-                baseUrl: '${Config.apiBaseUrl}/api/v1',
-                connectTimeout: const Duration(seconds: 15),
-                receiveTimeout: const Duration(seconds: 15),
-                headers: const <String, dynamic>{
-                  'Content-Type': 'application/json',
-                },
-              ),
-            );
+            final refreshDio = buildUnauthenticatedDio();
             final resp = await refreshDio.post<Map<String, dynamic>>(
               '/auth/refresh',
               data: <String, dynamic>{'refreshToken': refreshToken},

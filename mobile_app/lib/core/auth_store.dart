@@ -191,9 +191,10 @@ class AuthStore extends StateNotifier<AuthState> {
     }
     if (stored == null || stored.isEmpty) return false;
     try {
-      // Bypass interceptors to avoid re-entrancy.
-      final plain = Dio(
-        BaseOptions(baseUrl: api.dio.options.baseUrl),
+      // Bypass interceptors to avoid re-entrancy (same timeouts/headers/
+      // logging as ApiClient via shared factory).
+      final plain = buildUnauthenticatedDio(
+        baseUrl: api.dio.options.baseUrl,
       );
       final resp = await plain.post<dynamic>(
         '/auth/refresh',
