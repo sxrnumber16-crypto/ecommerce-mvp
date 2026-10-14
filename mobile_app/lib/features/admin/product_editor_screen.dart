@@ -3,18 +3,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../shared/widgets/error_state.dart';
-import '../../shared/widgets/loading_state.dart';
+import '../../design/components/app_button.dart';
+import '../../design/components/app_card.dart';
+import '../../design/components/app_input.dart';
+import '../../design/components/state_views.dart';
+import '../../design/tokens/app_radius.dart';
+import '../../design/tokens/app_space.dart';
+import '../../design/tokens/app_text.dart';
+import '../../shared/widgets/error_state.dart' show friendlyError;
 import '../catalog/catalog_api.dart';
 import '../catalog/models.dart';
 import 'admin_api.dart';
 import 'admin_gate.dart';
 
-/// Create + edit form for `POST /admin/products` and
+/// Create + edit form reskin for `POST /admin/products` and
 /// `PATCH /admin/products/:id`: `name`, `categoryId`, `priceBdt`,
 /// `stock`, `imageUrl`, `isActive` (plus optional `slug`).
 /// Edit mode also offers a deactivate button (`DELETE` soft-sets
 /// `isActive=false`). Guarded by [AdminGate].
+///
+/// Payload logic is identical to the legacy screen: [_body] (imageUrl
+/// empty→`''` on edit / omitted on create, slug omitted on create when
+/// blank and sent on edit only when changed), [_save] (create vs
+/// update + same SnackBars), [_deactivate] (confirm dialog + `DELETE`),
+/// and the inactive-product 404 → admin re-activation workaround
+/// (`PATCH {isActive:true}` then reload via [_reactivate], keeping the
+/// cached `_product`/controllers so the form still renders). New look
+/// only: [AppCard] sections, [AppInput] fields, an image-URL live
+/// preview, and [AppButton] actions. Bilingual copy kept.
 class ProductEditorScreen extends ConsumerStatefulWidget {
   /// `null` → create mode; otherwise edit `GET /products/:id`.
   final int? productId;
@@ -56,11 +72,18 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   @override
   void initState() {
     super.initState();
+    // Live image-URL preview: repaint the preview card on each keystroke.
+    _imageUrl.addListener(_onPreview);
     if (_isEdit) _load();
+  }
+
+  void _onPreview() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _imageUrl.removeListener(_onPreview);
     _name.dispose();
     _slug.dispose();
     _price.dispose();
@@ -231,9 +254,9 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
               : 'নতুন পণ্য / New product'),
         ),
         body: _loading
-            ? const LoadingState()
+            ? const Center(child: CircularProgressIndicator())
             : (_loadError != null && !(_notFound && _isEdit))
-                ? ErrorState(message: _loadError!, onRetry: _load)
+                ? ErrorView(message: _loadError!, onRetry: _load)
                 : FutureBuilder<List<Category>>(
                     future: ref.read(catalogApiProvider).categories(),
                     builder: (context, snapshot) {
@@ -241,7 +264,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                       return Form(
                         key: _formKey,
                         child: ListView(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(AppSpace.l),
                           children: [
                             // Customer GET 404s for inactive products; the id
                             // is still valid admin context, so offer admin
@@ -249,146 +272,229 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                             // Cached controllers/_product are kept, so the
                             // form still renders for re-activation.
                             if (_notFound && _isEdit) ...[
-                              Card(
+                              AppCard(
                                 child: Padding(
-                                  padding: const EdgeInsets.all(12),
+                                  padding:
+                                      const EdgeInsets.all(AppSpace.m),
                                   child: Text(
                                     _loadError ??
                                         'নিষ্ক্রিয় পণ্য / Inactive product',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium,
+                                    style: AppText.body(context),
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              FilledButton.tonalIcon(
-                                onPressed: _reactivating ? null : _reactivate,
-                                icon: const Icon(
-                                    Icons.visibility_outlined),
-                                label: Text(_reactivating
+                              const SizedBox(height: AppSpace.s),
+                              AppButton(
+                                label: _reactivating
                                     ? 'সক্রিয় হচ্ছে… / Re-activating…'
-                                    : 'সক্রিয় / Re-activate'),
+                                    : 'সক্রিয় / Re-activate',
+                                loading: _reactivating,
+                                onPressed:
+                                    _reactivating ? null : _reactivate,
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: AppSpace.s),
                             ],
-                            TextFormField(
-                              controller: _name,
-                              decoration: const InputDecoration(
-                                  labelText: 'নাম / Name'),
-                              validator: (v) =>
-                                  v == null || v.trim().isEmpty
-                                      ? 'নাম দিন / Name required'
-                                      : null,
-                            ),
-                            const SizedBox(height: 12),
-                            InputDecorator(
-                              decoration: InputDecoration(
-                                labelText: 'ক্যাটাগরি / Category',
-                                errorText: _catTouched && _categoryId == null
-                                    ? 'ক্যাটাগরি বেছে নিন / Pick a category'
-                                    : null,
-                              ),
-                              child: DropdownButton<int>(
-                                value: cats.any((c) => c.id == _categoryId)
-                                    ? _categoryId
-                                    : null,
-                                isExpanded: true,
-                                underline: const SizedBox.shrink(),
-                                hint: const Text(
-                                    'ক্যাটাগরি বেছে নিন / Pick a category'),
-                                items: cats
-                                    .map((c) => DropdownMenuItem(
-                                        value: c.id,
-                                        child: Text(c.name)))
-                                    .toList(),
-                                onChanged: (v) => setState(() {
-                                  _categoryId = v;
-                                  _catTouched = true;
-                                }),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _price,
-                                    keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(
-                                        labelText: 'দাম (৳) / Price'),
-                                    validator: (v) {
-                                      final n = int.tryParse(v?.trim() ?? '');
-                                      if (n == null || n < 1) {
-                                        return 'সঠিক দাম দিন / Valid price required';
-                                      }
-                                      return null;
-                                    },
-                                  ),
+                            AppCard(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.all(AppSpace.l),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Text(
+                                      'মূল তথ্য / Basics',
+                                      style: AppText.title(context),
+                                    ),
+                                    const SizedBox(height: AppSpace.m),
+                                    AppInput(
+                                      controller: _name,
+                                      label: 'নাম / Name',
+                                      validator: (v) =>
+                                          v == null || v.trim().isEmpty
+                                              ? 'নাম দিন / Name required'
+                                              : null,
+                                    ),
+                                    const SizedBox(height: AppSpace.m),
+                                    InputDecorator(
+                                      decoration: InputDecoration(
+                                        labelText:
+                                            'ক্যাটাগরি / Category',
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                          horizontal: AppSpace.l,
+                                          vertical: AppSpace.m,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(
+                                                  AppRadius.card),
+                                        ),
+                                        errorText:
+                                            _catTouched && _categoryId == null
+                                                ? 'ক্যাটাগরি বেছে নিন / Pick a category'
+                                                : null,
+                                      ),
+                                      child: DropdownButton<int>(
+                                        value: cats.any((c) =>
+                                                c.id == _categoryId)
+                                            ? _categoryId
+                                            : null,
+                                        isExpanded: true,
+                                        underline:
+                                            const SizedBox.shrink(),
+                                        hint: const Text(
+                                            'ক্যাটাগরি বেছে নিন / Pick a category'),
+                                        items: cats
+                                            .map((c) => DropdownMenuItem(
+                                                value: c.id,
+                                                child: Text(c.name)))
+                                            .toList(),
+                                        onChanged: (v) => setState(() {
+                                          _categoryId = v;
+                                          _catTouched = true;
+                                        }),
+                                      ),
+                                    ),
+                                    const SizedBox(height: AppSpace.m),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: AppInput(
+                                            controller: _price,
+                                            label: 'দাম (৳) / Price',
+                                            keyboardType:
+                                                TextInputType.number,
+                                            validator: (v) {
+                                              final n = int.tryParse(
+                                                  v?.trim() ?? '');
+                                              if (n == null || n < 1) {
+                                                return 'সঠিক দাম দিন / Valid price required';
+                                              }
+                                              return null;
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(
+                                            width: AppSpace.m),
+                                        Expanded(
+                                          child: AppInput(
+                                            controller: _stock,
+                                            label: 'স্টক / Stock',
+                                            keyboardType:
+                                                TextInputType.number,
+                                            validator: (v) {
+                                              final n = int.tryParse(
+                                                  v?.trim() ?? '');
+                                              if (n == null || n < 0) {
+                                                return 'সঠিক স্টক দিন / Valid stock required';
+                                              }
+                                              return null;
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _stock,
-                                    keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(
-                                        labelText: 'স্টক / Stock'),
-                                    validator: (v) {
-                                      final n = int.tryParse(v?.trim() ?? '');
-                                      if (n == null || n < 0) {
-                                        return 'সঠিক স্টক দিন / Valid stock required';
-                                      }
-                                      return null;
-                                    },
-                                  ),
+                              ),
+                            ),
+                            const SizedBox(height: AppSpace.m),
+                            AppCard(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.all(AppSpace.l),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Text(
+                                      'ছবি / Image',
+                                      style: AppText.title(context),
+                                    ),
+                                    const SizedBox(height: AppSpace.m),
+                                    _ImagePreview(
+                                        url: _imageUrl.text.trim()),
+                                    const SizedBox(height: AppSpace.m),
+                                    AppInput(
+                                      controller: _imageUrl,
+                                      label: 'ছবির URL / Image URL',
+                                      keyboardType: TextInputType.url,
+                                    ),
+                                    Text(
+                                      'https://… (optional)',
+                                      style: AppText.label(context),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _imageUrl,
-                              keyboardType: TextInputType.url,
-                              decoration: const InputDecoration(
-                                labelText: 'ছবির URL / Image URL',
-                                hintText: 'https://… (optional)',
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _slug,
-                              decoration: const InputDecoration(
-                                labelText: 'Slug (optional)',
-                                hintText: 'blank = auto-generate',
+                            const SizedBox(height: AppSpace.m),
+                            AppCard(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.all(AppSpace.l),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Text(
+                                      'বিস্তারিত / Details',
+                                      style: AppText.title(context),
+                                    ),
+                                    const SizedBox(height: AppSpace.m),
+                                    AppInput(
+                                      controller: _slug,
+                                      label: 'Slug (optional)',
+                                    ),
+                                    Text(
+                                      'blank = auto-generate',
+                                      style: AppText.label(context),
+                                    ),
+                                    const SizedBox(height: AppSpace.m),
+                                    TextFormField(
+                                      controller: _description,
+                                      maxLines: 3,
+                                      decoration: InputDecoration(
+                                        labelText: 'বিবরণ / Description',
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                          horizontal: AppSpace.l,
+                                          vertical: AppSpace.m,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(
+                                                  AppRadius.card),
+                                        ),
+                                      ),
+                                    ),
+                                    SwitchListTile(
+                                      title: const Text(
+                                          'সক্রিয় / Active'),
+                                      value: _isActive,
+                                      contentPadding: EdgeInsets.zero,
+                                      onChanged: (v) => setState(
+                                          () => _isActive = v),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _description,
-                              maxLines: 3,
-                              decoration: const InputDecoration(
-                                  labelText: 'বিবরণ / Description'),
-                            ),
-                            SwitchListTile(
-                              title:
-                                  const Text('সক্রিয় / Active'),
-                              value: _isActive,
-                              onChanged: (v) =>
-                                  setState(() => _isActive = v),
-                            ),
-                            const SizedBox(height: 8),
-                            FilledButton(
+                            const SizedBox(height: AppSpace.m),
+                            AppButton(
+                              label: 'সংরক্ষণ / Save',
+                              loading: _saving,
                               onPressed: _saving ? null : _save,
-                              child: Text(_saving
-                                  ? 'সংরক্ষণ হচ্ছে… / Saving…'
-                                  : 'সংরক্ষণ / Save'),
                             ),
                             if (_isEdit) ...[
-                              const SizedBox(height: 8),
-                              OutlinedButton.icon(
-                                onPressed: _saving ? null : _deactivate,
-                                icon: const Icon(Icons.visibility_off_outlined),
-                                label: const Text(
-                                    'নিষ্ক্রিয় / Deactivate (soft delete)'),
+                              const SizedBox(height: AppSpace.s),
+                              AppButton(
+                                label:
+                                    'নিষ্ক্রিয় / Deactivate (soft delete)',
+                                outlined: true,
+                                onPressed:
+                                    _saving ? null : _deactivate,
                               ),
                             ],
                           ],
@@ -396,6 +502,51 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                       );
                     },
                   ),
+      ),
+    );
+  }
+}
+
+/// Live preview for the image-URL field: the network image when the
+/// URL is non-blank (with an icon fallback on load failure), else a
+/// muted placeholder tile.
+class _ImagePreview extends StatelessWidget {
+  final String url;
+
+  const _ImagePreview({required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    if (url.isEmpty) {
+      return Container(
+        height: 160,
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(AppRadius.card),
+        ),
+        child: Icon(
+          Icons.image_outlined,
+          size: 48,
+          color: scheme.onSurfaceVariant,
+        ),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.card),
+      child: Image.network(
+        url,
+        height: 180,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          height: 160,
+          color: scheme.surfaceContainerHighest,
+          child: Icon(
+            Icons.image_not_supported_outlined,
+            size: 48,
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
       ),
     );
   }

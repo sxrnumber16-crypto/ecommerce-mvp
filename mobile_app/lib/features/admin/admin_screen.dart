@@ -3,17 +3,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/config.dart';
-import '../../shared/widgets/empty_state.dart';
-import '../../shared/widgets/error_state.dart';
-import '../../shared/widgets/loading_state.dart';
+import '../../design/components/app_button.dart';
+import '../../design/components/app_card.dart';
+import '../../design/components/app_chip.dart';
+import '../../design/components/section_header.dart';
+import '../../design/components/state_views.dart';
+import '../../design/tokens/app_radius.dart';
+import '../../design/tokens/app_space.dart';
+import '../../design/tokens/app_text.dart';
+import '../../shared/widgets/error_state.dart' show friendlyError;
 import 'admin_api.dart';
 import 'admin_gate.dart';
 
-/// Admin dashboard: stat cards (`users`, `products`/`activeProducts`,
-/// `ordersByStatus`, `lowStock`, `revenue` from `GET /admin/dashboard`)
-/// plus entry points to product create/edit and the admin orders list.
-/// Guarded by [AdminGate]; route `/admin` also redirects non-admins
-/// to `/home` in `app.dart`.
+/// Admin dashboard reskin: stat [AppCard]s (`users`,
+/// `products`/`activeProducts`, total orders, `revenue` from
+/// `GET /admin/dashboard`) plus entry points to product create/edit
+/// and the admin orders list.
+///
+/// Data flow is identical to the legacy screen: one
+/// `adminApiProvider.dashboard()` future, `_reload` for retry/pull,
+/// `ordersByStatus` chips, low-stock rows routing to
+/// `/admin/products/:id/edit`. Guarded by [AdminGate]; route `/admin`
+/// also redirects non-admins to `/home` in `app.dart`. Bilingual copy
+/// verbatim. New look only.
 class AdminScreen extends ConsumerStatefulWidget {
   const AdminScreen({super.key});
 
@@ -43,90 +55,153 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
           future: _future,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const LoadingState();
+              return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError) {
-              return ErrorState(
+              return ErrorView(
                 message: friendlyError(snapshot.error!),
                 onRetry: _reload,
               );
             }
             final d = snapshot.data!;
+            final orderTotal =
+                d.ordersByStatus.values.fold<int>(0, (a, b) => a + b);
             return RefreshIndicator(
               onRefresh: () async => _reload(),
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpace.l),
                 children: [
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: AppSpace.m,
+                    crossAxisSpacing: AppSpace.m,
+                    childAspectRatio: 1.6,
                     children: [
-                      _StatChip(
-                          label: 'Users', value: '${d.users}'),
-                      _StatChip(
-                          label: 'Products',
-                          value: '${d.activeProducts}/${d.products}'),
-                      _StatChip(
-                          label: 'Revenue', value: Config.bdt(d.revenue)),
+                      _StatCard(
+                        icon: Icons.people_outline,
+                        label: 'Users / ব্যবহারকারী',
+                        value: '${d.users}',
+                      ),
+                      _StatCard(
+                        icon: Icons.inventory_2_outlined,
+                        label: 'Products / পণ্য',
+                        value: '${d.activeProducts}/${d.products}',
+                      ),
+                      _StatCard(
+                        icon: Icons.receipt_long_outlined,
+                        label: 'Orders / অর্ডার',
+                        value: '$orderTotal',
+                      ),
+                      _StatCard(
+                        icon: Icons.payments_outlined,
+                        label: 'Revenue / আয়',
+                        value: Config.bdt(d.revenue),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Text('Orders by status',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpace.l),
+                  const SectionHeader(
+                      title: 'Orders by status / অবস্থা অনুযায়ী'),
                   if (d.ordersByStatus.isEmpty)
-                    const Text('No orders yet')
+                    Text(
+                      'কোনো অর্ডার নেই / No orders yet',
+                      style: AppText.body(context),
+                    )
                   else
                     Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                      spacing: AppSpace.s,
+                      runSpacing: AppSpace.s,
                       children: d.ordersByStatus.entries
-                          .map((e) => Chip(
-                              label: Text('${e.key}: ${e.value}')))
+                          .map((e) => AppChip(label: '${e.key}: ${e.value}'))
                           .toList(),
                     ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpace.l),
                   Row(
                     children: [
                       Expanded(
-                        child: FilledButton.icon(
+                        child: AppButton(
+                          label: 'নতুন পণ্য / New',
                           onPressed: () =>
                               context.push('/admin/products/new'),
-                          icon: const Icon(Icons.add),
-                          label: const Text('নতুন পণ্য / New product'),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSpace.s),
                       Expanded(
-                        child: FilledButton.tonalIcon(
+                        child: AppButton(
+                          label: 'অর্ডার / Orders',
+                          outlined: true,
                           onPressed: () => context.push('/admin/orders'),
-                          icon: const Icon(Icons.receipt_long),
-                          label: const Text('অর্ডার / Orders'),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                      'Low stock (≤5): ${d.lowStock.length}',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpace.l),
+                  SectionHeader(
+                    title:
+                        'Low stock (≤5): ${d.lowStock.length} / কম স্টক',
+                  ),
                   if (d.lowStock.isEmpty)
-                    const EmptyState(
+                    const EmptyView(
                       message: 'সব স্টক ঠিক আছে / Stock levels OK',
-                      icon: Icons.check_circle_outline,
                     )
                   else
                     ...d.lowStock.map(
-                      (p) => Card(
-                        child: ListTile(
-                          title: Text(p.name),
-                          subtitle: Text(
-                              'Stock: ${p.stock} • ${Config.bdt(p.priceBdt)}'
-                              '${p.isActive ? '' : ' • inactive'}'),
-                          trailing: const Icon(Icons.edit_outlined),
+                      (p) => Padding(
+                        padding:
+                            const EdgeInsets.only(bottom: AppSpace.s),
+                        child: AppCard(
                           onTap: () => context
                               .push('/admin/products/${p.id}/edit'),
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpace.m),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary
+                                        .withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(
+                                        AppRadius.card),
+                                  ),
+                                  child: Icon(
+                                    Icons.inventory_2_outlined,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary,
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpace.m),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        p.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppText.title(context),
+                                      ),
+                                      const SizedBox(height: AppSpace.xs),
+                                      Text(
+                                        'স্টক: ${p.stock} • '
+                                        '${Config.bdt(p.priceBdt)}'
+                                        '${p.isActive ? '' : ' • নিষ্ক্রিয় / inactive'}',
+                                        style: AppText.body(context),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(Icons.edit_outlined),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -140,22 +215,43 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
   }
 }
 
-class _StatChip extends StatelessWidget {
+class _StatCard extends StatelessWidget {
+  final IconData icon;
   final String label;
   final String value;
 
-  const _StatChip({required this.label, required this.value});
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    final scheme = Theme.of(context).colorScheme;
+    return AppCard(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.all(AppSpace.m),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(value, style: Theme.of(context).textTheme.titleLarge),
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
+            Icon(icon, color: scheme.primary),
+            const SizedBox(height: AppSpace.s),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppText.headline(context),
+            ),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppText.label(context).copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
       ),

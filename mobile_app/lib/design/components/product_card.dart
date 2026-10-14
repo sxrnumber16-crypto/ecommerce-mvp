@@ -12,7 +12,8 @@ import '../tokens/app_text.dart';
 import 'app_card.dart';
 
 /// v2 product tile built on [AppCard] (the legacy
-/// `shared/widgets/product_card.dart` stays until Task 8).
+/// `shared/widgets/product_card.dart` stays: it is still imported by
+/// `mobile_app/test/widget_test.dart`, so Task 8 keeps it).
 ///
 /// Image bleeds to the card edges; [Config.bdt] price in primary color.
 /// Taps navigate to `/product/:id`. The wishlist heart is local-only
