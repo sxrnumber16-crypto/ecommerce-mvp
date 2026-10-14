@@ -3,19 +3,19 @@
 ## Backend — full suite (real run, 2026-10-14)
 
 Command: `npm --prefix backend test` (vitest, sequential single-fork).
-Result: **Test Files 7 passed (7), Tests 41 passed (41), Duration ~37s.**
+Result: **Test Files 7 passed (7), Tests 47 passed (47), Duration ~40s.**
 
 | File | Tests | Notes |
 |---|---|---|
-| `tests/checkout.test.ts` | 10 | server-calculated totals, atomic stock decrement, oversell 409, idempotent replay, invalid/inactive product 404, qty 400, foreign address 403/404, history+detail isolation |
-| `tests/auth.test.ts` | 8 | register (role ignored incl. `role:admin` attack), duplicate 409, login ok/401, refresh rotation + old-reuse reject, logout revoke, me 401/200 |
-| `tests/admin.test.ts` | 7 | dashboard 403 for customer, product create/edit/deactivate (+ hidden publicly), order list + status flow, invalid status 400 |
+| `tests/checkout.test.ts` | 13 | server-calculated totals, atomic stock decrement, oversell 409, idempotent replay, invalid/inactive product 404, qty 400, foreign address 403/404, duplicate-productId aggregation (incl. over-stock 409, over-10 400), history+detail isolation |
+| `tests/auth.test.ts` | 9 | register (role ignored incl. `role:admin` attack), duplicate 409 incl. concurrent-race P2002 path, login ok/401, refresh rotation + old-reuse reject, logout revoke, me 401/200 |
+| `tests/admin.test.ts` | 9 | dashboard 403 for customer, product create/edit/deactivate (+ hidden publicly), order list + status flow, invalid status 400, revenue excludes cancelled, lowStock active-only |
 | `tests/profile.test.ts` | 7 | profile get/patch, address create+list, isDefault switch, cross-user isolation, validation 400 |
 | `tests/catalog.test.ts` | 7 | categories, products list/search/filter/pagination, inactive hidden, detail 404 |
 | `tests/health.test.ts` | 1 | `GET /health` → `{ status: "ok" }` |
 | `tests/seed.test.ts` | 1 | seed counts (6 categories, 10 products) |
 
-Total: 10 + 8 + 7 + 7 + 7 + 1 + 1 = **41/41 passing**.
+Total: 13 + 9 + 9 + 7 + 7 + 1 + 1 = **47/47 passing**.
 
 ## Flutter — UNVERIFIED
 
