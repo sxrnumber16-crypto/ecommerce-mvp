@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myapp/core/config.dart';
+import 'package:myapp/design/components/product_card.dart' as design_card;
 import 'package:myapp/features/catalog/models.dart';
 import 'package:myapp/shared/widgets/product_card.dart';
 
@@ -41,5 +42,33 @@ void main() {
     expect(find.text('Test Saree'), findsOneWidget);
     expect(find.text(Config.bdt(1234)), findsOneWidget);
     expect(find.textContaining('Low'), findsOneWidget);
+  });
+
+  // UNVERIFIED: no Flutter SDK on this machine — not run.
+  testWidgets('ProductCard v2 shows BDT price and wishlist heart',
+      (tester) async {
+    const product = Product(
+      id: 7,
+      categoryId: 2,
+      name: 'Test Panjabi',
+      slug: 'test-panjabi',
+      description: '',
+      priceBdt: 2599,
+      stock: 12,
+      imageUrl: '',
+      isActive: true,
+      categorySlug: 'fashion',
+      categoryName: 'Fashion',
+    );
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: design_card.ProductCard(product: product, wished: true),
+        ),
+      ),
+    );
+    expect(find.text('Test Panjabi'), findsOneWidget);
+    expect(find.text(Config.bdt(2599)), findsOneWidget);
+    expect(find.byIcon(Icons.favorite), findsOneWidget);
   });
 }
