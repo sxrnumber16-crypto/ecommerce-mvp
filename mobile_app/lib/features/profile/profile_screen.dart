@@ -3,11 +3,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth_store.dart';
-import '../../shared/widgets/error_state.dart';
-import '../../shared/widgets/loading_state.dart';
+import '../../design/components/app_button.dart';
+import '../../design/components/app_card.dart';
+import '../../design/components/app_input.dart';
+import '../../design/components/state_views.dart';
+import '../../design/tokens/app_radius.dart';
+import '../../design/tokens/app_space.dart';
+import '../../design/tokens/app_text.dart';
+import '../../shared/widgets/error_state.dart' show friendlyError;
 import 'profile_api.dart';
 
-/// Profile tab: `GET /profile` (name/phone), `PATCH /profile` edit, logout.
+/// Profile tab reskin: `GET /profile` (name/phone), `PATCH /profile`
+/// edit, logout.
+///
+/// Data flow is identical to the legacy screen: one
+/// `profileApiProvider.get()` future, `_reload` on retry, controller
+/// prefill from [ProfileData], `patch(fullName:, phone:)` with the
+/// same validator/messages/SnackBars, admin gating via
+/// `authStoreProvider.isAdmin` → `go('/admin')`, and logout via
+/// `authStoreProvider.notifier.logout()` → `go('/login')`. Bilingual
+/// copy verbatim. New look only: identity header [AppCard], menu-row
+/// [AppCard] (orders/admin/edit rows route exactly as before), an
+/// appearance row that reflects the existing system-following theme
+/// (no new ThemeMode mechanism invented — see [_ThemeRow]), an edit
+/// form with [AppInput]s, and an [AppButton] logout.
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
@@ -73,16 +92,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authStoreProvider);
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('প্রোফাইল / Profile')),
       body: FutureBuilder<ProfileData>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const LoadingState();
+            return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return ErrorState(
+            return ErrorView(
               message: friendlyError(snapshot.error!),
               onRetry: _reload,
             );
@@ -93,64 +113,111 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             _name.text = data.fullName ?? '';
             _phone.text = data.phone ?? '';
           }
+          final displayName = data.fullName?.isNotEmpty == true
+              ? data.fullName!
+              : (data.email.isNotEmpty
+                  ? data.email
+                  : 'গ্রাহক / Customer');
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpace.l),
             children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const CircleAvatar(
-                    child: Icon(Icons.person_outline)),
-                title: Text(data.fullName?.isNotEmpty == true
-                    ? data.fullName!
-                    : (data.email.isNotEmpty
-                        ? data.email
-                        : 'গ্রাহক / Customer')),
-                subtitle: Text(
-                    '${data.email}${data.role.isNotEmpty ? ' • ${data.role}' : ''}'),
-              ),
-              const Divider(),
-              if (_editing)
-                Form(
-                  key: _form,
-                  child: Column(
+              AppCard(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpace.l),
+                  child: Row(
                     children: [
-                      TextFormField(
-                        controller: _name,
-                        decoration: const InputDecoration(
-                          labelText: 'নাম / Full name',
-                          border: OutlineInputBorder(),
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: scheme.primary.withValues(alpha: 0.12),
                         ),
-                        validator: (v) =>
-                            v == null || v.trim().isEmpty
-                                ? 'নাম দিন / Enter name'
-                                : null,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _phone,
-                        keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(
-                          labelText: 'ফোন / Phone',
-                          border: OutlineInputBorder(),
+                        child: Icon(
+                          Icons.person_outline,
+                          size: 32,
+                          color: scheme.primary,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: FilledButton(
-                              onPressed: _saving ? null : _save,
-                              child: _saving
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2),
-                                    )
-                                  : const Text('সেভ / Save'),
+                      const SizedBox(width: AppSpace.m),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppText.headline(context),
                             ),
+                            const SizedBox(height: AppSpace.xs),
+                            Text(
+                              '${data.email}${data.role.isNotEmpty ? ' • ${data.role}' : ''}',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppText.body(context).copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpace.xs),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.phone_outlined,
+                                  size: 14,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: AppSpace.xs),
+                                Expanded(
+                                  child: Text(
+                                    data.phone?.isNotEmpty == true
+                                        ? data.phone!
+                                        : 'ফোন নেই / No phone',
+                                    style: AppText.label(context).copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpace.m),
+              if (_editing)
+                AppCard(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpace.l),
+                    child: Form(
+                      key: _form,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          AppInput(
+                            controller: _name,
+                            label: 'নাম / Full name',
+                            validator: (v) =>
+                                v == null || v.trim().isEmpty
+                                    ? 'নাম দিন / Enter name'
+                                    : null,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(height: AppSpace.m),
+                          AppInput(
+                            controller: _phone,
+                            label: 'ফোন / Phone',
+                            keyboardType: TextInputType.phone,
+                          ),
+                          const SizedBox(height: AppSpace.m),
+                          AppButton(
+                            label: 'সেভ / Save',
+                            loading: _saving,
+                            onPressed: _saving ? null : _save,
+                          ),
+                          const SizedBox(height: AppSpace.s),
                           TextButton(
                             onPressed: _saving
                                 ? null
@@ -159,39 +226,146 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                 )
-              else ...[
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.phone_outlined),
-                  title: Text(data.phone?.isNotEmpty == true
-                      ? data.phone!
-                      : 'ফোন নেই / No phone'),
+              else
+                AppCard(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _MenuRow(
+                        icon: Icons.edit_outlined,
+                        label: 'এডিট / Edit profile',
+                        onTap: () => setState(() => _editing = true),
+                      ),
+                      _divider(),
+                      _MenuRow(
+                        icon: Icons.receipt_long_outlined,
+                        label: 'আমার অর্ডার / My orders',
+                        onTap: () => context.go('/orders'),
+                      ),
+                      if (auth.isAdmin) ...[
+                        _divider(),
+                        _MenuRow(
+                          icon: Icons.admin_panel_settings_outlined,
+                          label: 'অ্যাডমিন / Admin',
+                          onTap: () => context.go('/admin'),
+                        ),
+                      ],
+                      _divider(),
+                      const _ThemeRow(),
+                    ],
+                  ),
                 ),
-                FilledButton.tonal(
-                  onPressed: () => setState(() => _editing = true),
-                  child: const Text('এডিট / Edit profile'),
-                ),
-              ],
-              const SizedBox(height: 8),
-              if (auth.isAdmin)
-                FilledButton.tonal(
-                  onPressed: () => context.go('/admin'),
-                  child: const Text('অ্যাডমিন / Admin'),
-                ),
-              const SizedBox(height: 8),
-              FilledButton(
+              const SizedBox(height: AppSpace.m),
+              AppButton(
+                label: 'লগআউট / Logout',
                 onPressed: () async {
                   await ref.read(authStoreProvider.notifier).logout();
                   if (context.mounted) context.go('/login');
                 },
-                child: const Text('লগআউট / Logout'),
               ),
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _divider() => Divider(
+        height: 1,
+        indent: AppSpace.l,
+        endIndent: AppSpace.l,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      );
+}
+
+/// Single menu row: leading icon, bilingual label, trailing chevron.
+class _MenuRow extends StatelessWidget {
+  const _MenuRow({
+    required this.icon,
+    required this.label,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.card),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpace.l,
+          vertical: AppSpace.m,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: scheme.primary),
+            const SizedBox(width: AppSpace.m),
+            Expanded(
+              child: Text(label, style: AppText.title(context)),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: scheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Appearance row reflecting the EXISTING theme mechanism.
+///
+/// Verified by search: the codebase has no `ThemeMode`/toggle
+/// provider — `MyApp` wires `buildLightTheme()`/`buildDarkTheme()`
+/// so the app follows the system brightness. Per the brief ("keep
+/// existing mechanism, do not invent a new one") this row is
+/// display-only: it shows the current mode and notes it follows the
+/// system, without adding any new theme state.
+class _ThemeRow extends StatelessWidget {
+  const _ThemeRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.l,
+        vertical: AppSpace.m,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+            color: scheme.primary,
+          ),
+          const SizedBox(width: AppSpace.m),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('থিম / Theme', style: AppText.title(context)),
+                Text(
+                  dark
+                      ? 'ডার্ক (সিস্টেম) / Dark (system)'
+                      : 'লাইট (সিস্টেম) / Light (system)',
+                  style: AppText.body(context).copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

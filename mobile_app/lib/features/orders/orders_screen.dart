@@ -3,29 +3,44 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/config.dart';
-import '../../shared/widgets/empty_state.dart';
-import '../../shared/widgets/error_state.dart';
-import '../../shared/widgets/loading_state.dart';
+import '../../design/components/app_card.dart';
+import '../../design/components/app_chip.dart';
+import '../../design/components/state_views.dart';
+import '../../design/tokens/app_radius.dart';
+import '../../design/tokens/app_space.dart';
+import '../../design/tokens/app_text.dart';
+import '../../shared/widgets/error_state.dart' show friendlyError;
 import 'orders_api.dart';
 
+/// Status pill color. Status STRINGS are never changed — only the
+/// pill tint. Derived from theme scheme + success/error accents.
 Color _statusColor(BuildContext context, String status) {
+  final scheme = Theme.of(context).colorScheme;
   switch (status) {
     case 'pending':
-      return Colors.orange;
+      return const Color(0xFFB45309);
     case 'confirmed':
-      return Colors.blue;
+      return scheme.primary;
     case 'shipped':
-      return Colors.purple;
+      return scheme.secondary;
     case 'delivered':
-      return Colors.green;
+      return const Color(0xFF15803D);
     case 'cancelled':
-      return Theme.of(context).colorScheme.error;
+      return scheme.error;
     default:
-      return Theme.of(context).colorScheme.outline;
+      return scheme.onSurfaceVariant;
   }
 }
 
-/// `GET /orders` list with status chips. Tap → `/orders/:id`.
+/// `GET /orders` list reskin.
+///
+/// Data flow is identical to the legacy screen: one
+/// `ordersApiProvider.list()` future, `_reload` for retry/pull, empty
+/// state routing to `/search`, row tap routing to `/orders/:id`.
+/// Status strings, payment fields, totals, and bilingual copy are
+/// verbatim. New look only: status [AppChip] filters (client-side over
+/// the fetched list — never a query param) and order [AppCard]s with a
+/// status pill.
 class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({super.key});
 
@@ -33,8 +48,17 @@ class OrdersScreen extends ConsumerStatefulWidget {
   ConsumerState<OrdersScreen> createState() => _OrdersScreenState();
 }
 
+const _statuses = <String>[
+  'pending',
+  'confirmed',
+  'shipped',
+  'delivered',
+  'cancelled',
+];
+
 class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   late Future<List<OrderSummary>> _future;
+  String? _filter;
 
   @override
   void initState() {
@@ -47,55 +71,168 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('অর্ডার / Orders')),
       body: FutureBuilder<List<OrderSummary>>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const LoadingState();
+            return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return ErrorState(
+            return ErrorView(
               message: friendlyError(snapshot.error!),
               onRetry: _reload,
             );
           }
           final orders = snapshot.data!;
           if (orders.isEmpty) {
-            return EmptyState(
+            return EmptyView(
               message: 'কোনো অর্ডার নেই / No orders yet',
-              icon: Icons.receipt_long_outlined,
               actionLabel: 'কেনাকাটা করুন / Shop now',
               onAction: () => context.go('/search'),
             );
           }
-          return RefreshIndicator(
-            onRefresh: () async => _reload(),
-            child: ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: orders.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (context, i) {
-                final o = orders[i];
-                final color = _statusColor(context, o.status);
-                return Card(
-                  child: ListTile(
-                    onTap: () => context.push('/orders/${o.id}'),
-                    title: Text('অর্ডার #${o.id} • ${o.itemCount} টি পণ্য'),
-                    subtitle: Text(
-                        '${Config.bdt(o.total)} • ${o.paymentMethod}/${o.paymentStatus}'),
-                    trailing: Chip(
-                      label: Text(o.status),
-                      backgroundColor: color.withValues(alpha: 0.15),
-                      labelStyle: TextStyle(
-                          color: color, fontWeight: FontWeight.w600),
-                      side: BorderSide.none,
-                    ),
+          final visible = _filter == null
+              ? orders
+              : orders.where((o) => o.status == _filter).toList();
+          return Column(
+            children: [
+              SizedBox(
+                height: 52,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpace.l,
+                    vertical: AppSpace.s,
                   ),
-                );
-              },
-            ),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: AppSpace.s),
+                      child: AppChip(
+                        label: 'সব / All',
+                        selected: _filter == null,
+                        onTap: () => setState(() => _filter = null),
+                      ),
+                    ),
+                    for (final s in _statuses)
+                      Padding(
+                        padding: const EdgeInsets.only(right: AppSpace.s),
+                        child: AppChip(
+                          label: s,
+                          selected: _filter == s,
+                          onTap: () => setState(() => _filter = s),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: visible.isEmpty
+                    ? EmptyView(
+                        message: 'এই অবস্থায় কোনো অর্ডার নেই / '
+                            'No orders with this status',
+                        actionLabel: 'সব দেখুন / Show all',
+                        onAction: () => setState(() => _filter = null),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: () async => _reload(),
+                        child: ListView.separated(
+                          padding: const EdgeInsets.all(AppSpace.l),
+                          itemCount: visible.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: AppSpace.m),
+                          itemBuilder: (context, i) {
+                            final o = visible[i];
+                            final color = _statusColor(context, o.status);
+                            return AppCard(
+                              onTap: () => context.push('/orders/${o.id}'),
+                              child: Padding(
+                                padding: const EdgeInsets.all(AppSpace.m),
+                                child: Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        color: color.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(
+                                            AppRadius.card),
+                                      ),
+                                      child: Icon(
+                                        Icons.receipt_long_outlined,
+                                        color: color,
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppSpace.m),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'অর্ডার #${o.id} • '
+                                            '${o.itemCount} টি পণ্য',
+                                            style:
+                                                AppText.title(context),
+                                          ),
+                                          const SizedBox(
+                                              height: AppSpace.xs),
+                                          Text(
+                                            Config.bdt(o.total),
+                                            style: AppText.price(context)
+                                                .copyWith(
+                                              color: scheme.primary,
+                                            ),
+                                          ),
+                                          const SizedBox(
+                                              height: AppSpace.xs),
+                                          Text(
+                                            '${o.paymentMethod}/'
+                                            '${o.paymentStatus}',
+                                            style: AppText.body(context)
+                                                .copyWith(
+                                              color: scheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppSpace.s),
+                                    Container(
+                                      padding:
+                                          const EdgeInsets.symmetric(
+                                        horizontal: AppSpace.m,
+                                        vertical: AppSpace.xs,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color:
+                                            color.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(
+                                            AppRadius.pill),
+                                      ),
+                                      child: Text(
+                                        o.status,
+                                        style: AppText.label(context)
+                                            .copyWith(
+                                          color: color,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+              ),
+            ],
           );
         },
       ),
