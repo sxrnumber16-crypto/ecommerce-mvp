@@ -4,21 +4,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/config.dart';
 import '../../design/components/app_card.dart';
 import '../../design/components/state_views.dart';
+import '../../design/tokens/app_colors.dart';
 import '../../design/tokens/app_space.dart';
 import '../../design/tokens/app_text.dart';
 import '../../shared/widgets/error_state.dart' show friendlyError;
 import 'orders_api.dart';
 
-/// `GET /orders/:id` reskin: items + payment + a vertical status
-/// timeline (`pending → confirmed → shipped → delivered`;
-/// `cancelled` terminal).
+/// `GET /orders/:id` navy restyle (Orvix dark-navy concept): items +
+/// payment + a vertical status timeline (`pending → confirmed →
+/// shipped → delivered`; `cancelled` terminal).
 ///
 /// Data flow is identical to the legacy screen:
 /// `ordersApiProvider.detail(orderId)`, `_flow.indexOf(order.status)`
 /// step math, the `cancelled` branch, and all money figures via
 /// [Config.bdt] from server fields only. Bilingual copy verbatim.
-/// New look only: status/payment/items/totals [AppCard]s and a custom
-/// token-styled vertical timeline with the current step highlighted.
+/// New look only: navy status/payment/items/totals [AppCard]s, blue
+/// icons/price/timeline accents via tokens, and a custom vertical
+/// timeline with the current step highlighted.
 class OrderDetailScreen extends ConsumerStatefulWidget {
   final int orderId;
 
@@ -114,7 +116,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                         Row(
                           children: [
                             Icon(Icons.payments_outlined,
-                                color: scheme.primary),
+                                color: AppColors.seed),
                             const SizedBox(width: AppSpace.s),
                             Expanded(
                               child: Text(
@@ -131,7 +133,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                           Row(
                             children: [
                               Icon(Icons.location_on_outlined,
-                                  color: scheme.primary),
+                                  color: AppColors.seed),
                               const SizedBox(width: AppSpace.s),
                               Expanded(
                                 child: Text(
@@ -224,7 +226,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                             Text(
                               Config.bdt(order.total),
                               style: AppText.price(context).copyWith(
-                                color: scheme.primary,
+                                color: AppColors.price,
                               ),
                             ),
                           ],
@@ -269,7 +271,7 @@ class _Timeline extends StatelessWidget {
                         width: 2,
                         height: 24,
                         color: i < current
-                            ? scheme.primary
+                            ? AppColors.seed
                             : scheme.surfaceContainerHighest,
                       ),
                   ],
@@ -315,9 +317,9 @@ class _Dot extends StatelessWidget {
       return Container(
         width: 24,
         height: 24,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           shape: BoxShape.circle,
-          color: scheme.primary,
+          color: AppColors.seed,
         ),
         child: Icon(
           Icons.check,
@@ -332,16 +334,16 @@ class _Dot extends StatelessWidget {
         height: 24,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: scheme.primary, width: 2.5),
-          color: scheme.primary.withValues(alpha: 0.15),
+          border: Border.all(color: AppColors.seed, width: 2.5),
+          color: AppColors.seed.withValues(alpha: 0.15),
         ),
         child: Center(
           child: Container(
             width: 8,
             height: 8,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              color: scheme.primary,
+              color: AppColors.seed,
             ),
           ),
         ),

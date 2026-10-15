@@ -7,14 +7,15 @@ import '../../design/components/app_button.dart';
 import '../../design/components/app_card.dart';
 import '../../design/components/app_input.dart';
 import '../../design/components/state_views.dart';
+import '../../design/tokens/app_colors.dart';
 import '../../design/tokens/app_radius.dart';
 import '../../design/tokens/app_space.dart';
 import '../../design/tokens/app_text.dart';
 import '../../shared/widgets/error_state.dart' show friendlyError;
 import 'profile_api.dart';
 
-/// Profile tab reskin: `GET /profile` (name/phone), `PATCH /profile`
-/// edit, logout.
+/// Profile tab navy restyle (Orvix dark-navy concept): `GET /profile`
+/// (name/phone), `PATCH /profile` edit, logout.
 ///
 /// Data flow is identical to the legacy screen: one
 /// `profileApiProvider.get()` future, `_reload` on retry, controller
@@ -22,11 +23,12 @@ import 'profile_api.dart';
 /// same validator/messages/SnackBars, admin gating via
 /// `authStoreProvider.isAdmin` → `go('/admin')`, and logout via
 /// `authStoreProvider.notifier.logout()` → `go('/login')`. Bilingual
-/// copy verbatim. New look only: identity header [AppCard], menu-row
-/// [AppCard] (orders/admin/edit rows route exactly as before), an
-/// appearance row that reflects the existing system-following theme
+/// copy verbatim. New look only: navy identity header [AppCard],
+/// menu-row [AppCard] (orders/admin/edit rows route exactly as before),
+/// an appearance row that reflects the existing system-following theme
 /// (no new ThemeMode mechanism invented — see [_ThemeRow]), an edit
-/// form with [AppInput]s, and an [AppButton] logout.
+/// form with [AppInput]s, and a blue [AppButton] logout. Blue accents
+/// via tokens.
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
@@ -131,12 +133,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         height: 64,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: scheme.primary.withValues(alpha: 0.12),
+                          color: AppColors.seed.withValues(alpha: 0.12),
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.person_outline,
                           size: 32,
-                          color: scheme.primary,
+                          color: AppColors.seed,
                         ),
                       ),
                       const SizedBox(width: AppSpace.m),
@@ -306,7 +308,7 @@ class _MenuRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(icon, color: scheme.primary),
+            Icon(icon, color: AppColors.seed),
             const SizedBox(width: AppSpace.m),
             Expanded(
               child: Text(label, style: AppText.title(context)),
@@ -346,7 +348,7 @@ class _ThemeRow extends StatelessWidget {
         children: [
           Icon(
             dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
-            color: scheme.primary,
+            color: AppColors.seed,
           ),
           const SizedBox(width: AppSpace.m),
           Expanded(

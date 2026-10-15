@@ -5,11 +5,16 @@ import 'package:flutter/material.dart';
 
 import '../../core/api_client.dart';
 import '../../core/config.dart';
+import '../../design/components/app_card.dart';
 import '../../design/components/app_scaffold.dart';
+import '../../design/tokens/app_colors.dart';
 import '../../design/tokens/app_space.dart';
 
-/// In-app network diagnostics: DNS, TCP, and HTTPS checks against
-/// [Config.apiBaseUrl]. Auto-runs on open; safe to re-run offline.
+/// In-app network diagnostics navy restyle (Orvix dark-navy concept):
+/// DNS, TCP, and HTTPS checks against [Config.apiBaseUrl]. Auto-runs
+/// on open; safe to re-run offline. Styling only — check logic,
+/// timeouts, endpoints, and copy are identical. Navy [AppCard] result
+/// tiles with blue success accents via tokens.
 class NetworkDiagnosticsScreen extends StatefulWidget {
   const NetworkDiagnosticsScreen({super.key});
 
@@ -298,7 +303,7 @@ class _CheckTile extends StatelessWidget {
       detail = 'Running…';
       detailColor = scheme.onSurfaceVariant;
     } else if (r.ok == true) {
-      leading = Icon(Icons.check_circle_outline, color: scheme.primary);
+      leading = const Icon(Icons.check_circle_outline, color: AppColors.seed);
       detail = r.detail;
       detailColor = null;
     } else {
@@ -306,7 +311,7 @@ class _CheckTile extends StatelessWidget {
       detail = r.detail;
       detailColor = null;
     }
-    return Card(
+    return AppCard(
       child: ListTile(
         leading: leading,
         title: Text(title),

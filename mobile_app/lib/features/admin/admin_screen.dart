@@ -9,6 +9,7 @@ import '../../design/components/app_card.dart';
 import '../../design/components/app_chip.dart';
 import '../../design/components/section_header.dart';
 import '../../design/components/state_views.dart';
+import '../../design/tokens/app_colors.dart';
 import '../../design/tokens/app_radius.dart';
 import '../../design/tokens/app_space.dart';
 import '../../design/tokens/app_text.dart';
@@ -29,9 +30,9 @@ Map<String, int> _statusOf(Object? v) {
   return status;
 }
 
-/// Admin dashboard v2: stat [AppCard]s (`users`,
-/// `products`/`activeProducts`, total orders, `revenue` from
-/// `GET /admin/dashboard`) plus analytics charts from
+/// Admin dashboard v2 navy restyle (Orvix dark-navy concept): stat
+/// [AppCard]s (`users`, `products`/`activeProducts`, total orders,
+/// `revenue` from `GET /admin/dashboard`) plus analytics charts from
 /// `GET /admin/analytics` ([AnalyticsCharts]) and entry points to
 /// product create/edit and the admin orders list.
 ///
@@ -39,7 +40,8 @@ Map<String, int> _statusOf(Object? v) {
 /// analytics future keyed by the selected day-range, `_reload` for
 /// retry/pull, low-stock rows routing to `/admin/products/:id/edit`.
 /// Guarded by [AdminGate]; route `/admin` also redirects non-admins
-/// to `/home` in `app.dart`. Bilingual copy. New look only.
+/// to `/home` in `app.dart`. Bilingual copy. Blue accents via tokens.
+/// New look only.
 class AdminScreen extends ConsumerStatefulWidget {
   const AdminScreen({super.key});
 
@@ -208,10 +210,12 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
 
 /// Pure chart section for the dashboard, fed by the decoded
 /// `GET /admin/analytics` map (`days`, `daily`, `topProducts`,
-/// `ordersByStatus`, `lowStock`). Revenue as a teal [LineChart],
-/// orders as a [BarChart], status as a donut [PieChart], plus the
-/// top-5 list and low-stock cards. Theme colors + design tokens only,
-/// so light/dark mode both work.
+/// `ordersByStatus`, `lowStock`). Revenue as a blue [LineChart], orders
+/// as a [BarChart], status as a donut [PieChart], plus the top-5 list
+/// and low-stock cards. Blue-family chart colors
+/// (`scheme.primary`/`secondary`/`tertiary`, reusing the status legend
+/// palette — no hardcoded teal/green) + design tokens only, so
+/// light/dark mode both work.
 class AnalyticsCharts extends StatelessWidget {
   final Map<String, dynamic> data;
   final ValueChanged<int>? onSelectProduct;
@@ -243,7 +247,7 @@ class AnalyticsCharts extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpace.s),
-        _card(_revenueChart(daily)),
+        _card(_revenueChart(context, daily)),
         const SizedBox(height: AppSpace.l),
         const SectionHeader(title: 'Orders / অর্ডার'),
         _card(_ordersChart(context, daily)),
@@ -316,16 +320,13 @@ class AnalyticsCharts extends StatelessWidget {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withValues(alpha: 0.12),
+                          color: AppColors.seed.withValues(alpha: 0.12),
                           borderRadius:
                               BorderRadius.circular(AppRadius.card),
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.inventory_2_outlined,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: AppColors.seed,
                         ),
                       ),
                       const SizedBox(width: AppSpace.m),
@@ -368,10 +369,12 @@ class AnalyticsCharts extends StatelessWidget {
         ),
       );
 
-  Widget _revenueChart(List<Map<String, dynamic>> daily) {
+  Widget _revenueChart(
+      BuildContext context, List<Map<String, dynamic>> daily) {
     if (daily.isEmpty) {
       return const EmptyView(message: 'কোনো তথ্য নেই / No data yet');
     }
+    final scheme = Theme.of(context).colorScheme;
     final spots = <FlSpot>[
       for (var i = 0; i < daily.length; i++)
         FlSpot(i.toDouble(), _asInt(daily[i]['revenue']).toDouble()),
@@ -393,13 +396,13 @@ class AnalyticsCharts extends StatelessWidget {
             LineChartBarData(
               spots: spots,
               isCurved: true,
-              color: Colors.teal,
+              color: scheme.primary,
               barWidth: 3,
               isStrokeCapRound: true,
               dotData: const FlDotData(show: false),
               belowBarData: BarAreaData(
                 show: true,
-                color: Colors.teal.withValues(alpha: 0.15),
+                color: scheme.primary.withValues(alpha: 0.15),
               ),
             ),
           ],
@@ -548,7 +551,7 @@ class _StatCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: scheme.primary),
+            Icon(icon, color: AppColors.seed),
             const SizedBox(height: AppSpace.s),
             Text(
               value,

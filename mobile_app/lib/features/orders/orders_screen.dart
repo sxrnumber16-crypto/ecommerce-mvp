@@ -33,15 +33,15 @@ Color _statusColor(BuildContext context, String status) {
   }
 }
 
-/// `GET /orders` list reskin.
+/// `GET /orders` list navy restyle (Orvix dark-navy concept).
 ///
 /// Data flow is identical to the legacy screen: one
 /// `ordersApiProvider.list()` future, `_reload` for retry/pull, empty
 /// state routing to `/search`, row tap routing to `/orders/:id`.
 /// Status strings, payment fields, totals, and bilingual copy are
 /// verbatim. New look only: status [AppChip] filters (client-side over
-/// the fetched list — never a query param) and order [AppCard]s with a
-/// status pill.
+/// the fetched list — never a query param), navy order [AppCard]s with
+/// a status pill, and a blue price via tokens.
 class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({super.key});
 
@@ -186,7 +186,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                             Config.bdt(o.total),
                                             style: AppText.price(context)
                                                 .copyWith(
-                                              color: scheme.primary,
+                                              color: AppColors.price,
                                             ),
                                           ),
                                           const SizedBox(

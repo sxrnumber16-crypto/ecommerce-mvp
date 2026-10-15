@@ -7,6 +7,7 @@ import '../../design/components/app_button.dart';
 import '../../design/components/app_card.dart';
 import '../../design/components/app_input.dart';
 import '../../design/components/state_views.dart';
+import '../../design/tokens/app_colors.dart';
 import '../../design/tokens/app_radius.dart';
 import '../../design/tokens/app_space.dart';
 import '../../design/tokens/app_text.dart';
@@ -16,11 +17,11 @@ import '../catalog/models.dart';
 import 'admin_api.dart';
 import 'admin_gate.dart';
 
-/// Create + edit form reskin for `POST /admin/products` and
-/// `PATCH /admin/products/:id`: `name`, `categoryId`, `priceBdt`,
-/// `stock`, `imageUrl`, `isActive` (plus optional `slug`).
-/// Edit mode also offers a deactivate button (`DELETE` soft-sets
-/// `isActive=false`). Guarded by [AdminGate].
+/// Create + edit form navy restyle (Orvix dark-navy concept) for
+/// `POST /admin/products` and `PATCH /admin/products/:id`: `name`,
+/// `categoryId`, `priceBdt`, `stock`, `imageUrl`, `isActive` (plus
+/// optional `slug`). Edit mode also offers a deactivate button
+/// (`DELETE` soft-sets `isActive=false`). Guarded by [AdminGate].
 ///
 /// Payload logic is identical to the legacy screen: [_body] (imageUrl
 /// empty→`''` on edit / omitted on create, slug omitted on create when
@@ -28,9 +29,10 @@ import 'admin_gate.dart';
 /// update + same SnackBars), [_deactivate] (confirm dialog + `DELETE`),
 /// and the inactive-product 404 → admin re-activation workaround
 /// (`PATCH {isActive:true}` then reload via [_reactivate], keeping the
-/// cached `_product`/controllers so the form still renders). New look
-/// only: [AppCard] sections, [AppInput] fields, an image-URL live
-/// preview, and [AppButton] actions. Bilingual copy kept.
+/// cached `_product`/controllers so the form still renders). Blue
+/// switch accent via tokens. New look only: navy [AppCard] sections,
+/// [AppInput] fields, an image-URL live preview, and blue [AppButton]
+/// actions. Bilingual copy kept.
 class ProductEditorScreen extends ConsumerStatefulWidget {
   /// `null` → create mode; otherwise edit `GET /products/:id`.
   final int? productId;
@@ -473,6 +475,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                                       title: const Text(
                                           'সক্রিয় / Active'),
                                       value: _isActive,
+                                      activeThumbColor: AppColors.seed,
                                       contentPadding: EdgeInsets.zero,
                                       onChanged: (v) => setState(
                                           () => _isActive = v),

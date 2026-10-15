@@ -34,18 +34,19 @@ Color _statusColor(BuildContext context, String status) {
   }
 }
 
-/// Admin orders reskin: `GET /admin/orders` list with inline detail
-/// (items, buyer email, payment `unpaid`/`paid` chip + Paid/Unpaid
-/// dropdown via `PATCH /admin/orders/:id/payment`) and a status
-/// bottom-sheet (`PATCH /admin/orders/:id/status`). Guarded by
-/// [AdminGate].
+/// Admin orders navy restyle (Orvix dark-navy concept): `GET
+/// /admin/orders` list with inline detail (items, buyer email, payment
+/// `unpaid`/`paid` chip + Paid/Unpaid dropdown via
+/// `PATCH /admin/orders/:id/payment`) and a status bottom-sheet
+/// (`PATCH /admin/orders/:id/status`). Guarded by [AdminGate].
 ///
 /// Paging (`page`/`limit`/`total` envelope, `limit: 20`), the
 /// `_updating` guard, the status enum, and all SnackBar copy are
-/// identical to the legacy screen. New look only: order [AppCard]s
+/// identical to the legacy screen. New look only: navy order [AppCard]s
 /// with a status pill and a [showAppSheet] status picker instead of
 /// the inline dropdown. Payment is a dropdown (admins only);
-/// the customer order detail shows payment read-only.
+/// the customer order detail shows payment read-only. Blue accents via
+/// tokens.
 class OrdersAdminScreen extends ConsumerStatefulWidget {
   const OrdersAdminScreen({super.key});
 
