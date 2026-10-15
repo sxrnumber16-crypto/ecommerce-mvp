@@ -12,6 +12,7 @@ abstract final class AppColors {
   static const darkOutline = Color(0xFF24406E);
   static const darkText = Color(0xFFF2F6FF);
   static const darkMuted = Color(0xFF8EA0BF);
+  static const navyCard = Color(0xFF16294A);
   static const price = Color(0xFF2E7CF6);
   static const success = Color(0xFF22C55E);
   static const error = Color(0xFFEF4444);

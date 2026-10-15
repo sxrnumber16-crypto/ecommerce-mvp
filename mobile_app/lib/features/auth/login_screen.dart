@@ -7,6 +7,7 @@ import '../../core/config.dart';
 import '../../design/components/app_button.dart';
 import '../../design/components/app_input.dart';
 import '../../design/components/app_scaffold.dart';
+import '../../design/tokens/app_colors.dart';
 import '../../design/tokens/app_radius.dart';
 import '../../design/tokens/app_space.dart';
 import '../../design/tokens/app_text.dart';
@@ -62,7 +63,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 padding: const EdgeInsets.all(AppSpace.xl),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF16294A), Color(0xFF2E7CF6)],
+                    colors: [AppColors.navyCard, AppColors.seed],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),

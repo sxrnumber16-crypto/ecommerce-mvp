@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import '../tokens/app_colors.dart';
 import '../tokens/app_radius.dart';
 import '../tokens/app_space.dart';
 import '../tokens/app_text.dart';
@@ -26,7 +27,7 @@ class PromoBanner extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadius.card),
         gradient: const LinearGradient(
-          colors: [Color(0xFF16294A), Color(0xFF2E7CF6)],
+          colors: [AppColors.navyCard, AppColors.seed],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -63,7 +64,7 @@ class PromoBanner extends StatelessWidget {
                   onPressed: onCta,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF2E7CF6),
+                    foregroundColor: AppColors.seed,
                     shape: RoundedRectangleBorder(
                         borderRadius:
                             BorderRadius.circular(AppRadius.pill)),
