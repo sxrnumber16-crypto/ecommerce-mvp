@@ -179,7 +179,8 @@ const adminOrderStatuses = <String>[
 /// - `PATCH /admin/products/:id` (partial of the above)
 /// - `DELETE /admin/products/:id` (soft: sets `isActive=false`)
 /// - `GET /admin/orders?page=&limit=`
-/// - `PATCH /admin/orders/:id/status` `{status}`.
+/// - `PATCH /admin/orders/:id/status` `{status}`
+/// - `GET /admin/analytics?days=` (dashboard v2 charts).
 class AdminApi {
   final Dio dio;
 
@@ -188,6 +189,18 @@ class AdminApi {
   Future<DashboardSummary> dashboard() async {
     final resp = await dio.get<dynamic>('/admin/dashboard');
     return DashboardSummary.fromJson(resp.data as Map<String, dynamic>);
+  }
+
+  /// Analytics from `GET /admin/analytics?days=`:
+  /// `{days, daily[{date, orders, revenue}],
+  /// topProducts[{id, name, qty, revenue}], ordersByStatus,
+  /// lowStock[{id, name, stock}]}`.
+  Future<Map<String, dynamic>> getAnalytics({int days = 14}) async {
+    final resp = await dio.get<dynamic>(
+      '/admin/analytics',
+      queryParameters: <String, dynamic>{'days': days},
+    );
+    return resp.data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> createProduct(

@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,17 +16,30 @@ import '../../shared/widgets/error_state.dart' show friendlyError;
 import 'admin_api.dart';
 import 'admin_gate.dart';
 
-/// Admin dashboard reskin: stat [AppCard]s (`users`,
+int _asInt(Object? v) => v is num ? v.toInt() : 0;
+
+List<Map<String, dynamic>> _rows(Object? v) =>
+    v is List ? v.whereType<Map<String, dynamic>>().toList() : const [];
+
+Map<String, int> _statusOf(Object? v) {
+  final status = <String, int>{};
+  if (v is Map) {
+    v.forEach((k, val) => status[k.toString()] = _asInt(val));
+  }
+  return status;
+}
+
+/// Admin dashboard v2: stat [AppCard]s (`users`,
 /// `products`/`activeProducts`, total orders, `revenue` from
-/// `GET /admin/dashboard`) plus entry points to product create/edit
-/// and the admin orders list.
+/// `GET /admin/dashboard`) plus analytics charts from
+/// `GET /admin/analytics` ([AnalyticsCharts]) and entry points to
+/// product create/edit and the admin orders list.
 ///
-/// Data flow is identical to the legacy screen: one
-/// `adminApiProvider.dashboard()` future, `_reload` for retry/pull,
-/// `ordersByStatus` chips, low-stock rows routing to
-/// `/admin/products/:id/edit`. Guarded by [AdminGate]; route `/admin`
-/// also redirects non-admins to `/home` in `app.dart`. Bilingual copy
-/// verbatim. New look only.
+/// Data flow mirrors the legacy screen: a dashboard future plus an
+/// analytics future keyed by the selected day-range, `_reload` for
+/// retry/pull, low-stock rows routing to `/admin/products/:id/edit`.
+/// Guarded by [AdminGate]; route `/admin` also redirects non-admins
+/// to `/home` in `app.dart`. Bilingual copy. New look only.
 class AdminScreen extends ConsumerStatefulWidget {
   const AdminScreen({super.key});
 
@@ -34,16 +48,38 @@ class AdminScreen extends ConsumerStatefulWidget {
 }
 
 class _AdminScreenState extends ConsumerState<AdminScreen> {
+  static const _dayOptions = <int>[7, 14, 30];
+
   late Future<DashboardSummary> _future;
+  late Future<Map<String, dynamic>> _analyticsFuture;
+  int _days = 14;
 
   @override
   void initState() {
     super.initState();
-    _future = ref.read(adminApiProvider).dashboard();
+    final api = ref.read(adminApiProvider);
+    _future = api.dashboard();
+    _analyticsFuture = api.getAnalytics(days: _days);
   }
 
-  void _reload() =>
-      setState(() => _future = ref.read(adminApiProvider).dashboard());
+  void _reload() => setState(() {
+        final api = ref.read(adminApiProvider);
+        _future = api.dashboard();
+        _analyticsFuture = api.getAnalytics(days: _days);
+      });
+
+  void _reloadAnalytics() => setState(() {
+        _analyticsFuture =
+            ref.read(adminApiProvider).getAnalytics(days: _days);
+      });
+
+  void _setDays(int days) {
+    if (days == _days) return;
+    setState(() {
+      _days = days;
+      _analyticsFuture = ref.read(adminApiProvider).getAnalytics(days: days);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +91,10 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
           future: _future,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const Padding(
+                padding: EdgeInsets.all(AppSpace.l),
+                child: LoadingGrid(),
+              );
             }
             if (snapshot.hasError) {
               return ErrorView(
@@ -102,21 +141,41 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                     ],
                   ),
                   const SizedBox(height: AppSpace.l),
-                  const SectionHeader(
-                      title: 'Orders by status / অবস্থা অনুযায়ী'),
-                  if (d.ordersByStatus.isEmpty)
-                    Text(
-                      'কোনো অর্ডার নেই / No orders yet',
-                      style: AppText.body(context),
-                    )
-                  else
-                    Wrap(
-                      spacing: AppSpace.s,
-                      runSpacing: AppSpace.s,
-                      children: d.ordersByStatus.entries
-                          .map((e) => AppChip(label: '${e.key}: ${e.value}'))
-                          .toList(),
-                    ),
+                  const SectionHeader(title: 'Analytics / অ্যানালিটিক্স'),
+                  Wrap(
+                    spacing: AppSpace.s,
+                    runSpacing: AppSpace.s,
+                    children: _dayOptions
+                        .map(
+                          (v) => AppChip(
+                            label: '$v days / $v দিন',
+                            selected: v == _days,
+                            onTap: () => _setDays(v),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: AppSpace.s),
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: _analyticsFuture,
+                    builder: (context, analytics) {
+                      if (analytics.connectionState ==
+                          ConnectionState.waiting) {
+                        return const LoadingGrid();
+                      }
+                      if (analytics.hasError) {
+                        return ErrorView(
+                          message: friendlyError(analytics.error!),
+                          onRetry: _reloadAnalytics,
+                        );
+                      }
+                      return AnalyticsCharts(
+                        data: analytics.data!,
+                        onSelectProduct: (id) =>
+                            context.push('/admin/products/$id/edit'),
+                      );
+                    },
+                  ),
                   const SizedBox(height: AppSpace.l),
                   Row(
                     children: [
@@ -137,79 +196,332 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppSpace.l),
-                  SectionHeader(
-                    title:
-                        'Low stock (≤5): ${d.lowStock.length} / কম স্টক',
-                  ),
-                  if (d.lowStock.isEmpty)
-                    const EmptyView(
-                      message: 'সব স্টক ঠিক আছে / Stock levels OK',
-                    )
-                  else
-                    ...d.lowStock.map(
-                      (p) => Padding(
-                        padding:
-                            const EdgeInsets.only(bottom: AppSpace.s),
-                        child: AppCard(
-                          onTap: () => context
-                              .push('/admin/products/${p.id}/edit'),
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppSpace.m),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primary
-                                        .withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(
-                                        AppRadius.card),
-                                  ),
-                                  child: Icon(
-                                    Icons.inventory_2_outlined,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primary,
-                                  ),
-                                ),
-                                const SizedBox(width: AppSpace.m),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        p.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: AppText.title(context),
-                                      ),
-                                      const SizedBox(height: AppSpace.xs),
-                                      Text(
-                                        'স্টক: ${p.stock} • '
-                                        '${Config.bdt(p.priceBdt)}'
-                                        '${p.isActive ? '' : ' • নিষ্ক্রিয় / inactive'}',
-                                        style: AppText.body(context),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Icon(Icons.edit_outlined),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
                 ],
               ),
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+/// Pure chart section for the dashboard, fed by the decoded
+/// `GET /admin/analytics` map (`days`, `daily`, `topProducts`,
+/// `ordersByStatus`, `lowStock`). Revenue as a teal [LineChart],
+/// orders as a [BarChart], status as a donut [PieChart], plus the
+/// top-5 list and low-stock cards. Theme colors + design tokens only,
+/// so light/dark mode both work.
+class AnalyticsCharts extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final ValueChanged<int>? onSelectProduct;
+
+  const AnalyticsCharts({
+    super.key,
+    required this.data,
+    this.onSelectProduct,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final daily = _rows(data['daily']);
+    final topProducts = _rows(data['topProducts']);
+    final lowStock = _rows(data['lowStock']);
+    final status = _statusOf(data['ordersByStatus']);
+    final totalRevenue =
+        daily.fold<int>(0, (sum, e) => sum + _asInt(e['revenue']));
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionHeader(title: 'Revenue / আয়'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpace.l),
+          child: Text(
+            Config.bdt(totalRevenue),
+            style: AppText.headline(context),
+          ),
+        ),
+        const SizedBox(height: AppSpace.s),
+        _card(_revenueChart(daily)),
+        const SizedBox(height: AppSpace.l),
+        const SectionHeader(title: 'Orders / অর্ডার'),
+        _card(_ordersChart(context, daily)),
+        const SizedBox(height: AppSpace.l),
+        const SectionHeader(title: 'Status / অবস্থা'),
+        _card(_statusChart(context, status)),
+        const SizedBox(height: AppSpace.s),
+        _statusLegend(context, status),
+        const SizedBox(height: AppSpace.l),
+        const SectionHeader(title: 'Top products / সেরা পণ্য'),
+        if (topProducts.isEmpty)
+          const EmptyView(message: 'কোনো বিক্রি নেই / No sales yet')
+        else
+          ...topProducts.map(
+            (p) => Padding(
+              padding:
+                  const EdgeInsets.fromLTRB(AppSpace.l, 0, AppSpace.l, AppSpace.s),
+              child: AppCard(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpace.m),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              p['name'] as String? ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppText.title(context),
+                            ),
+                            const SizedBox(height: AppSpace.xs),
+                            Text(
+                              'বিক্রি: ${_asInt(p['qty'])} • '
+                              '${Config.bdt(_asInt(p['revenue']))}',
+                              style: AppText.body(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        const SizedBox(height: AppSpace.s),
+        SectionHeader(
+          title: 'Low stock (≤5): ${lowStock.length} / কম স্টক',
+        ),
+        if (lowStock.isEmpty)
+          const EmptyView(
+            message: 'সব স্টক ঠিক আছে / Stock levels OK',
+          )
+        else
+          ...lowStock.map(
+            (p) => Padding(
+              padding:
+                  const EdgeInsets.fromLTRB(AppSpace.l, 0, AppSpace.l, AppSpace.s),
+              child: AppCard(
+                onTap: onSelectProduct == null
+                    ? null
+                    : () => onSelectProduct!(_asInt(p['id'])),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpace.m),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.12),
+                          borderRadius:
+                              BorderRadius.circular(AppRadius.card),
+                        ),
+                        child: Icon(
+                          Icons.inventory_2_outlined,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpace.m),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              p['name'] as String? ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppText.title(context),
+                            ),
+                            const SizedBox(height: AppSpace.xs),
+                            Text(
+                              'স্টক: ${_asInt(p['stock'])}',
+                              style: AppText.body(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.edit_outlined),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _card(Widget child) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpace.l),
+        child: AppCard(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpace.m),
+            child: child,
+          ),
+        ),
+      );
+
+  Widget _revenueChart(List<Map<String, dynamic>> daily) {
+    if (daily.isEmpty) {
+      return const EmptyView(message: 'কোনো তথ্য নেই / No data yet');
+    }
+    final spots = <FlSpot>[
+      for (var i = 0; i < daily.length; i++)
+        FlSpot(i.toDouble(), _asInt(daily[i]['revenue']).toDouble()),
+    ];
+    final peak = spots.map((s) => s.y).fold<double>(0, (a, b) => a > b ? a : b);
+    return SizedBox(
+      height: 180,
+      child: LineChart(
+        LineChartData(
+          lineTouchData: const LineTouchData(enabled: false),
+          gridData: const FlGridData(show: false),
+          titlesData: const FlTitlesData(show: false),
+          borderData: const FlBorderData(show: false),
+          minX: 0,
+          maxX: spots.length < 2 ? 1.0 : (spots.length - 1).toDouble(),
+          minY: 0,
+          maxY: peak <= 0 ? 1.0 : peak * 1.2,
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              color: Colors.teal,
+              barWidth: 3,
+              isStrokeCapRound: true,
+              dotData: const FlDotData(show: false),
+              belowBarData: BarAreaData(
+                show: true,
+                color: Colors.teal.withValues(alpha: 0.15),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _ordersChart(
+      BuildContext context, List<Map<String, dynamic>> daily) {
+    if (daily.isEmpty) {
+      return const EmptyView(message: 'কোনো তথ্য নেই / No data yet');
+    }
+    final scheme = Theme.of(context).colorScheme;
+    final peak = daily.fold<int>(0, (a, e) => a > _asInt(e['orders']) ? a : _asInt(e['orders']));
+    return SizedBox(
+      height: 180,
+      child: BarChart(
+        BarChartData(
+          barTouchData: const BarTouchData(enabled: false),
+          gridData: const FlGridData(show: false),
+          titlesData: const FlTitlesData(show: false),
+          borderData: const FlBorderData(show: false),
+          minY: 0,
+          maxY: peak <= 0 ? 1.0 : (peak + 1).toDouble(),
+          barGroups: [
+            for (var i = 0; i < daily.length; i++)
+              BarChartGroupData(
+                x: i,
+                barRods: [
+                  BarChartRodData(
+                    toY: _asInt(daily[i]['orders']).toDouble(),
+                    color: scheme.primary,
+                    width: 14,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statusChart(BuildContext context, Map<String, int> status) {
+    final entries = status.entries.where((e) => e.value > 0).toList();
+    if (entries.isEmpty) {
+      return const EmptyView(message: 'কোনো অর্ডার নেই / No orders yet');
+    }
+    final scheme = Theme.of(context).colorScheme;
+    final palette = <Color>[
+      scheme.primary,
+      scheme.secondary,
+      scheme.tertiary,
+      scheme.error,
+      scheme.outline,
+    ];
+    return SizedBox(
+      height: 200,
+      child: PieChart(
+        PieChartData(
+          pieTouchData: const PieTouchData(enabled: false),
+          sectionsSpace: 2,
+          centerSpaceRadius: 36,
+          sections: [
+            for (var i = 0; i < entries.length; i++)
+              PieChartSectionData(
+                value: entries[i].value.toDouble(),
+                color: palette[i % palette.length],
+                title: '${entries[i].value}',
+                radius: 44,
+                titleStyle: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statusLegend(BuildContext context, Map<String, int> status) {
+    final entries = status.entries.where((e) => e.value > 0).toList();
+    if (entries.isEmpty) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
+    final palette = <Color>[
+      scheme.primary,
+      scheme.secondary,
+      scheme.tertiary,
+      scheme.error,
+      scheme.outline,
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.l),
+      child: Wrap(
+        spacing: AppSpace.s,
+        runSpacing: AppSpace.s,
+        children: [
+          for (var i = 0; i < entries.length; i++)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: palette[i % palette.length],
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: AppSpace.xs),
+                Text(
+                  '${entries[i].key}: ${entries[i].value}',
+                  style: AppText.label(context),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }
