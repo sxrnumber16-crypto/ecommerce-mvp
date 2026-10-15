@@ -384,7 +384,7 @@ class AnalyticsCharts extends StatelessWidget {
           lineTouchData: const LineTouchData(enabled: false),
           gridData: const FlGridData(show: false),
           titlesData: const FlTitlesData(show: false),
-          borderData: const FlBorderData(show: false),
+          borderData: FlBorderData(show: false),
           minX: 0,
           maxX: spots.length < 2 ? 1.0 : (spots.length - 1).toDouble(),
           minY: 0,
@@ -419,10 +419,10 @@ class AnalyticsCharts extends StatelessWidget {
       height: 180,
       child: BarChart(
         BarChartData(
-          barTouchData: const BarTouchData(enabled: false),
+          barTouchData: BarTouchData(enabled: false),
           gridData: const FlGridData(show: false),
           titlesData: const FlTitlesData(show: false),
-          borderData: const FlBorderData(show: false),
+          borderData: FlBorderData(show: false),
           minY: 0,
           maxY: peak <= 0 ? 1.0 : (peak + 1).toDouble(),
           barGroups: [
@@ -463,7 +463,7 @@ class AnalyticsCharts extends StatelessWidget {
       height: 200,
       child: PieChart(
         PieChartData(
-          pieTouchData: const PieTouchData(enabled: false),
+          pieTouchData: PieTouchData(enabled: false),
           sectionsSpace: 2,
           centerSpaceRadius: 36,
           sections: [
