@@ -4,10 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/config.dart';
-import '../../design/components/app_chip.dart';
 import '../../design/components/product_card.dart' as v2;
+import '../../design/components/promo_banner.dart';
 import '../../design/components/section_header.dart';
 import '../../design/components/state_views.dart';
+import '../../design/tokens/app_colors.dart';
 import '../../design/tokens/app_radius.dart';
 import '../../design/tokens/app_space.dart';
 import '../../design/tokens/app_text.dart';
@@ -15,15 +16,17 @@ import '../../shared/widgets/error_state.dart' show friendlyError;
 import '../catalog/catalog_api.dart';
 import '../catalog/models.dart';
 
-/// Home tab reskin (Task 5).
+/// Home tab navy restyle (Task 4, Orvix dark-navy concept).
 ///
 /// Data flow is identical to the legacy screen: categories via
 /// `GET /categories`, featured via `GET /products?limit=8`, category taps
 /// navigate to `/search?category=<slug>`, card taps to `/product/:id`
-/// (inside the v2 card). New look only: category hero banner, [AppChip]
-/// row, featured 2-col grid of v2 [v2.ProductCard], and a best-sellers
-/// rail reusing the same card over the already-fetched payload (no extra
-/// API calls). Wishlist hearts are a local in-memory set; no backend calls.
+/// (inside the v2 card). New look only: [PromoBanner] carousel on top
+/// (one banner per category), navy category circles, featured 2-col grid
+/// of v2 [v2.ProductCard], and a best-sellers rail reusing the same card
+/// over the already-fetched payload (no extra API calls). Loading and
+/// error states use [LoadingGrid]/[ErrorView]. No ratings/discount rows.
+/// Wishlist hearts are a local in-memory set; no backend calls.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -99,7 +102,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               padding: const EdgeInsets.all(AppSpace.l),
               children: [
                 if (data.categories.isNotEmpty) ...[
-                  _HeroBanner(
+                  _PromoCarousel(
                     categories: data.categories,
                     activeIndex: _bannerIndex,
                     onPage: (i) => setState(() => _bannerIndex = i),
@@ -107,24 +110,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const SizedBox(height: AppSpace.l),
                   const SectionHeader(title: 'ক্যাটাগরি / Categories'),
                   const SizedBox(height: AppSpace.s),
-                  SizedBox(
-                    height: 40,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: data.categories.length,
-                      separatorBuilder: (_, _) =>
-                          const SizedBox(width: AppSpace.s),
-                      itemBuilder: (context, i) {
-                        final c = data.categories[i];
-                        return AppChip(
-                          label: c.name,
-                          onTap: () => context.push(
-                            '/search?category=${Uri.encodeComponent(c.slug)}',
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+                  _CategoryCircles(categories: data.categories),
                   const SizedBox(height: AppSpace.l),
                 ],
                 const SectionHeader(title: 'ফিচার্ড / Featured'),
@@ -189,10 +175,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-/// Auto-playing hero banner built from the category list. Each slide shows
-/// the category icon + name and navigates to `/search?category=<slug>`.
-class _HeroBanner extends StatelessWidget {
-  const _HeroBanner({
+/// Auto-playing promo carousel built from the category list. Each slide
+/// is a [PromoBanner] navigating to `/search?category=<slug>` (same
+/// target as before, via the banner CTA).
+class _PromoCarousel extends StatelessWidget {
+  const _PromoCarousel({
     required this.categories,
     required this.activeIndex,
     required this.onPage,
@@ -209,10 +196,18 @@ class _HeroBanner extends StatelessWidget {
       children: [
         CarouselSlider(
           items: [
-            for (final c in categories) _HeroSlide(category: c),
+            for (final c in categories)
+              PromoBanner(
+                title: c.name,
+                subtitle: 'কেনাকাটা করুন / Shop now →',
+                ctaLabel: 'কেনাকাটা করুন / Shop now',
+                onCta: () => context.push(
+                  '/search?category=${Uri.encodeComponent(c.slug)}',
+                ),
+              ),
           ],
           options: CarouselOptions(
-            height: 168,
+            height: 148,
             viewportFraction: 0.88,
             enlargeCenterPage: true,
             autoPlay: categories.length > 1,
@@ -232,7 +227,7 @@ class _HeroBanner extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(AppRadius.pill),
                   color: i == activeIndex % categories.length
-                      ? scheme.primary
+                      ? AppColors.seed
                       : scheme.surfaceContainerHighest,
                 ),
               ),
@@ -243,54 +238,57 @@ class _HeroBanner extends StatelessWidget {
   }
 }
 
-class _HeroSlide extends StatelessWidget {
-  const _HeroSlide({required this.category});
+/// Navy category circles. Taps navigate to `/search?category=<slug>`
+/// (same target as the previous chip row).
+class _CategoryCircles extends StatelessWidget {
+  const _CategoryCircles({required this.categories});
 
-  final Category category;
+  final List<Category> categories;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: () => context.push(
-        '/search?category=${Uri.encodeComponent(category.slug)}',
-      ),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(AppSpace.l),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppRadius.card),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [scheme.primary, scheme.tertiary],
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              _categoryIcon(category.icon),
-              color: scheme.onPrimary,
-              size: 28,
+    return SizedBox(
+      height: 100,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: categories.length,
+        separatorBuilder: (_, _) => const SizedBox(width: AppSpace.m),
+        itemBuilder: (context, i) {
+          final c = categories[i];
+          return GestureDetector(
+            onTap: () => context.push(
+              '/search?category=${Uri.encodeComponent(c.slug)}',
             ),
-            const SizedBox(height: AppSpace.s),
-            Text(
-              category.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppText.headline(context)
-                  .copyWith(color: scheme.onPrimary),
+            child: SizedBox(
+              width: 72,
+              child: Column(
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: const BoxDecoration(
+                      color: AppColors.navyCard,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _categoryIcon(c.icon),
+                      color: Colors.white,
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpace.xs),
+                  Text(
+                    c.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: AppText.label(context),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: AppSpace.xs),
-            Text(
-              'কেনাকাটা করুন / Shop now →',
-              style: AppText.label(context)
-                  .copyWith(color: scheme.onPrimary),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

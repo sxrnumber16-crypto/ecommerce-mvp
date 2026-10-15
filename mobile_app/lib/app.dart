@@ -6,6 +6,7 @@ import 'core/auth_refresh.dart';
 import 'core/auth_store.dart';
 import 'core/config.dart';
 import 'design/theme.dart';
+import 'design/tokens/app_colors.dart';
 import 'features/admin/admin_gate.dart';
 import 'features/admin/admin_screen.dart';
 import 'features/admin/orders_admin_screen.dart';
@@ -211,6 +212,10 @@ class MyApp extends ConsumerWidget {
 }
 
 /// Bottom-nav shell. Cart tab badge reflects [cartCountProvider].
+///
+/// Navy restyle (Task 4, Orvix dark-navy concept): dark navy bar with a
+/// blue active pill. Styling only — paths, tab logic, badge, and the
+/// admin tab are identical.
 class ScaffoldWithNav extends ConsumerWidget {
   final Widget child;
   const ScaffoldWithNav({super.key, required this.child});
@@ -247,9 +252,29 @@ class ScaffoldWithNav extends ConsumerWidget {
     final paths = _pathsFor(isAdmin);
     final index = _indexFor(loc, paths.length).clamp(0, paths.length - 1);
     final cartCount = ref.watch(cartCountProvider);
+    final navTheme = NavigationBarThemeData(
+      backgroundColor: AppColors.navyCard,
+      indicatorColor: AppColors.seed,
+      iconTheme: WidgetStateProperty.resolveWith(
+        (states) => IconThemeData(
+          color: states.contains(WidgetState.selected)
+              ? Colors.white
+              : AppColors.darkMuted,
+        ),
+      ),
+      labelTextStyle: WidgetStateProperty.resolveWith(
+        (states) => TextStyle(
+          color: states.contains(WidgetState.selected)
+              ? Colors.white
+              : AppColors.darkMuted,
+        ),
+      ),
+    );
     return Scaffold(
       body: child,
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: Theme(
+        data: Theme.of(context).copyWith(navigationBarTheme: navTheme),
+        child: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: (i) => context.go(paths[i]),
         destinations: <Widget>[
@@ -282,6 +307,7 @@ class ScaffoldWithNav extends ConsumerWidget {
                 selectedIcon: Icon(Icons.admin_panel_settings),
                 label: 'Admin'),
         ],
+        ),
       ),
     );
   }

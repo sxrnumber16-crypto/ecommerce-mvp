@@ -10,6 +10,7 @@ import '../../design/components/app_input.dart';
 import '../../design/components/product_card.dart' as v2;
 import '../../design/components/sheets.dart';
 import '../../design/components/state_views.dart';
+import '../../design/tokens/app_colors.dart';
 import '../../design/tokens/app_space.dart';
 import '../../design/tokens/app_text.dart';
 import '../../shared/widgets/error_state.dart' show friendlyError;
@@ -26,16 +27,16 @@ String _sortLabel(_Sort s) => switch (s) {
       _Sort.priceDesc => 'দাম: বেশি → কম / Price: high → low',
     };
 
-/// Search tab reskin (Task 5).
+/// Search tab navy restyle (Task 4, Orvix dark-navy concept).
 ///
 /// Server data flow is identical to the legacy screen: search field +
 /// category chips drive `GET /products?search=&category=&page=&limit=12`
 /// (debounced 400ms), paginated with Load more; `initialCategory` comes
 /// from the `?category=` query param. New look only: [AppInput] search
-/// field, [AppChip] filters, a filter bottom-sheet whose category/price/
-/// in-stock/sort controls apply CLIENT-side over the fetched items, and a
-/// v2 grid with skeleton states. Wishlist hearts are a local in-memory
-/// set; no backend calls.
+/// field, navy [AppChip] filters, a navy filter bottom-sheet whose
+/// category/price/in-stock/sort controls apply CLIENT-side over the
+/// fetched items, and a v2 grid (navy cards) with skeleton states.
+/// Wishlist hearts are a local in-memory set; no backend calls.
 class SearchScreen extends ConsumerStatefulWidget {
   /// Initial category slug (from Home chips via `?category=`).
   final String? initialCategory;
@@ -246,6 +247,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 style: AppText.body(context),
               ),
               value: inStock,
+              activeColor: AppColors.seed,
               contentPadding: EdgeInsets.zero,
               onChanged: (v) => setSheet(() => inStock = v),
             ),
@@ -277,6 +279,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 min: 0,
                 max: serverMax.toDouble(),
                 divisions: serverMax > 20 ? 20 : null,
+                activeColor: AppColors.seed,
                 label: Config.bdt(
                     (cap ?? serverMax.toDouble()).round()),
                 onChanged: (v) => setSheet(() => cap = v),
