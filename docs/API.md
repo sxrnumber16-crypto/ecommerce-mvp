@@ -198,3 +198,38 @@ All users, newest first, `limit` ≤ 100, items include `items`, `payment`,
 
 Enum: `pending | confirmed | shipped | delivered | cancelled`.
 `200` updated order (+ items/payment/user). `400` validation, `404` unknown id.
+
+### Update payment status — `PATCH /api/v1/admin/orders/:id/payment`
+
+```json
+{ "status": "paid" }
+```
+
+Enum: `paid | unpaid` (COD only).
+
+- `200` partial shape (not the full order):
+  ```json
+  { "id": 7, "status": "pending",
+    "payment": { "status": "paid", "method": "COD" } }
+  ```
+- Errors: `400` validation (bad id / bad or missing `status`),
+  `404` unknown id, `409` cancelled order locked
+  (`{ "error": "order cancelled" }`) or non-COD method
+  (`{ "error": "COD only" }`), `401` anon, `403` non-admin.
+
+### Analytics — `GET /api/v1/admin/analytics?days=14`
+
+- `days` optional int 1–90 (default 14); orders exclude `cancelled`
+  everywhere except `ordersByStatus` (which covers all statuses in range).
+- `200`:
+  ```json
+  { "days": 14,
+    "daily": [{ "date": "2026-10-01", "orders": 2, "revenue": 1500 }],
+    "topProducts": [{ "id": 3, "name": "..", "qty": 5, "revenue": 2500 }],
+    "ordersByStatus": { "pending": 2 },
+    "lowStock": [{ "id": 3, "name": "..", "stock": 2 }] }
+  ```
+  (`daily` covers every day in range, zero-filled; `topProducts` top 5
+  by qty; low stock = active `stock <= 5`.)
+- Errors: `400 { "error": "days must be 1-90" }` on out-of-range `days`,
+  `401` anon, `403` non-admin.

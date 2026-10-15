@@ -84,7 +84,8 @@ class DashboardSummary {
 }
 
 /// Order row from `GET /admin/orders` (includes `items`, `payment`,
-/// `user{id, email}`). Payment status is read-only (`unpaid`/`paid`).
+/// `user{id, email}`). Payment status (`unpaid`/`paid`) is toggleable by
+/// admins via `PATCH /admin/orders/:id/payment` ([AdminApi.setPaymentStatus]).
 class AdminOrder {
   final int id;
   final String status;
@@ -129,6 +130,20 @@ class AdminOrder {
           : const [],
     );
   }
+
+  AdminOrder copyWith({String? status, String? paymentStatus}) {
+    return AdminOrder(
+      id: id,
+      status: status ?? this.status,
+      total: total,
+      itemCount: itemCount,
+      paymentMethod: paymentMethod,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      userEmail: userEmail,
+      createdAt: createdAt,
+      items: items,
+    );
+  }
 }
 
 /// Paginated envelope from `GET /admin/orders` (`{items, page, limit, total}`).
@@ -171,6 +186,9 @@ const adminOrderStatuses = <String>[
   'cancelled',
 ];
 
+/// Payment statuses accepted by `PATCH /admin/orders/:id/payment`.
+const adminPaymentStatuses = <String>['paid', 'unpaid'];
+
 /// Admin endpoints behind `requireAuth + requireAdmin` (see
 /// `backend/src/routes/admin.ts`):
 /// - `GET /admin/dashboard`
@@ -180,6 +198,7 @@ const adminOrderStatuses = <String>[
 /// - `DELETE /admin/products/:id` (soft: sets `isActive=false`)
 /// - `GET /admin/orders?page=&limit=`
 /// - `PATCH /admin/orders/:id/status` `{status}`
+/// - `PATCH /admin/orders/:id/payment` `{status: paid|unpaid}`
 /// - `GET /admin/analytics?days=` (dashboard v2 charts).
 class AdminApi {
   final Dio dio;
@@ -235,6 +254,26 @@ class AdminApi {
       data: <String, dynamic>{'status': status},
     );
     return AdminOrder.fromJson(resp.data as Map<String, dynamic>);
+  }
+
+  /// Toggles COD payment via `PATCH /admin/orders/:id/payment`.
+  ///
+  /// The backend returns a partial shape
+  /// (`{id, status, payment: {status, method}}`), so this returns the
+  /// new payment status string — callers merge it into their local
+  /// order (see [AdminOrder.copyWith]). `409` means the order is
+  /// `cancelled` (locked) or the method is not COD.
+  Future<String> setPaymentStatus(int id, String status) async {
+    final resp = await dio.patch<dynamic>(
+      '/admin/orders/$id/payment',
+      data: <String, dynamic>{'status': status},
+    );
+    final data = resp.data as Map<String, dynamic>;
+    final payment = data['payment'];
+    if (payment is Map && payment['status'] is String) {
+      return payment['status'] as String;
+    }
+    return status;
   }
 }
 

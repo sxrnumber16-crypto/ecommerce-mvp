@@ -35,15 +35,17 @@ Color _statusColor(BuildContext context, String status) {
 }
 
 /// Admin orders reskin: `GET /admin/orders` list with inline detail
-/// (items, buyer email, read-only payment `unpaid`/`paid` chip) and a
-/// status bottom-sheet (`PATCH /admin/orders/:id/status`). Guarded by
+/// (items, buyer email, payment `unpaid`/`paid` chip + Paid/Unpaid
+/// dropdown via `PATCH /admin/orders/:id/payment`) and a status
+/// bottom-sheet (`PATCH /admin/orders/:id/status`). Guarded by
 /// [AdminGate].
 ///
 /// Paging (`page`/`limit`/`total` envelope, `limit: 20`), the
 /// `_updating` guard, the status enum, and all SnackBar copy are
 /// identical to the legacy screen. New look only: order [AppCard]s
 /// with a status pill and a [showAppSheet] status picker instead of
-/// the inline dropdown. Payment stays read-only.
+/// the inline dropdown. Payment is a dropdown (admins only);
+/// the customer order detail shows payment read-only.
 class OrdersAdminScreen extends ConsumerStatefulWidget {
   const OrdersAdminScreen({super.key});
 
@@ -90,6 +92,48 @@ class _OrdersAdminScreenState extends ConsumerState<OrdersAdminScreen> {
       setState(() => _updating.remove(order.id));
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    }
+  }
+
+  /// Payment toggle via `PATCH /admin/orders/:id/payment`: calls
+  /// [AdminApi.setPaymentStatus], merges the returned status into the
+  /// local list ([AdminOrder.copyWith]), and refreshes the card.
+  /// A `409` means the order is cancelled/locked (or non-COD) and
+  /// shows the friendly locked message instead of the raw error.
+  Future<void> _setPayment(AdminOrder order, String status) async {
+    if (_updating.contains(order.id) || status == order.paymentStatus) {
+      return;
+    }
+    setState(() => _updating.add(order.id));
+    try {
+      final updatedStatus = await ref
+          .read(adminApiProvider)
+          .setPaymentStatus(order.id, status);
+      if (!mounted) return;
+      setState(() {
+        _updating.remove(order.id);
+        _future = _future.then((p) => PagedAdminOrders(
+              items: p.items
+                  .map((o) => o.id == order.id
+                      ? o.copyWith(paymentStatus: updatedStatus)
+                      : o)
+                  .toList(),
+              page: p.page,
+              limit: p.limit,
+              total: p.total,
+            ));
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content:
+              Text('অর্ডার #${order.id} পেমেন্ট → $updatedStatus')));
+    } on DioException catch (e) {
+      if (!mounted) return;
+      setState(() => _updating.remove(order.id));
+      final msg = e.response?.statusCode == 409
+          ? 'বাতিল অর্ডার / Cancelled order locked'
+          : friendlyError(e);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(msg)));
     }
   }
 
@@ -159,6 +203,7 @@ class _OrdersAdminScreenState extends ConsumerState<OrdersAdminScreen> {
                     order: order,
                     updating: updating,
                     onChangeStatus: () => _pickStatus(order),
+                    onChangePayment: (s) => _setPayment(order, s),
                   );
                 },
               ),
@@ -174,11 +219,13 @@ class _OrderCard extends StatelessWidget {
   final AdminOrder order;
   final bool updating;
   final VoidCallback onChangeStatus;
+  final ValueChanged<String> onChangePayment;
 
   const _OrderCard({
     required this.order,
     required this.updating,
     required this.onChangeStatus,
+    required this.onChangePayment,
   });
 
   @override
@@ -261,6 +308,39 @@ class _OrderCard extends StatelessWidget {
                         icon: const Icon(Icons.swap_horiz_outlined),
                         label:
                             const Text('পরিবর্তন / Change'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: AppSpace.s),
+                Row(
+                  children: [
+                    Text(
+                      'পেমেন্ট / Payment',
+                      style: AppText.label(context),
+                    ),
+                    const Spacer(),
+                    if (updating)
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      DropdownButton<String>(
+                        value: order.paymentStatus,
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'unpaid',
+                            child: Text('unpaid'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'paid',
+                            child: Text('paid'),
+                          ),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) onChangePayment(v);
+                        },
                       ),
                   ],
                 ),
