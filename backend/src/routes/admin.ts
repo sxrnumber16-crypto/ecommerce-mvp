@@ -88,6 +88,73 @@ adminRouter.get("/dashboard", async (_req: Request, res: Response) => {
   });
 });
 
+adminRouter.get("/analytics", async (req: Request, res: Response) => {
+  const raw = Array.isArray(req.query.days) ? req.query.days[0] : req.query.days;
+  const days = Number(raw ?? 14);
+  if (!Number.isInteger(days) || days < 1 || days > 90) {
+    res.status(400).json({ error: "days must be 1-90" });
+    return;
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setDate(start.getDate() - (days - 1));
+
+  const orders = await prisma.order.findMany({
+    where: { createdAt: { gte: start }, status: { not: "cancelled" } },
+    select: { createdAt: true, total: true, status: true },
+  });
+  const dailyMap = new Map<string, { orders: number; revenue: number }>();
+  for (let i = 0; i < days; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    dailyMap.set(d.toISOString().slice(0, 10), { orders: 0, revenue: 0 });
+  }
+  for (const o of orders) {
+    const key = o.createdAt.toISOString().slice(0, 10);
+    const slot = dailyMap.get(key);
+    if (slot) {
+      slot.orders += 1;
+      slot.revenue += o.total;
+    }
+  }
+  const daily = [...dailyMap.entries()].map(([date, v]) => ({
+    date,
+    orders: v.orders,
+    revenue: v.revenue,
+  }));
+
+  const topRows = await prisma.orderItem.groupBy({
+    by: ["productId", "name"],
+    where: { order: { createdAt: { gte: start }, status: { not: "cancelled" } } },
+    _sum: { qty: true, lineTotal: true },
+    orderBy: { _sum: { qty: "desc" } },
+    take: 5,
+  });
+  const topProducts = topRows.map((r) => ({
+    id: r.productId,
+    name: r.name,
+    qty: r._sum.qty ?? 0,
+    revenue: r._sum.lineTotal ?? 0,
+  }));
+
+  const grouped = await prisma.order.groupBy({
+    by: ["status"],
+    where: { createdAt: { gte: start } },
+    _count: { status: true },
+  });
+  const ordersByStatus: Record<string, number> = {};
+  for (const g of grouped) ordersByStatus[g.status] = g._count.status;
+
+  const lowStock = await prisma.product.findMany({
+    where: { isActive: true, stock: { lte: 5 } },
+    select: { id: true, name: true, stock: true },
+    orderBy: { stock: "asc" },
+  });
+
+  res.status(200).json({ days, daily, topProducts, ordersByStatus, lowStock });
+});
+
 adminRouter.post("/products", async (req: Request, res: Response) => {
   const parsed = productCreateSchema.safeParse(req.body);
   if (!parsed.success) {
