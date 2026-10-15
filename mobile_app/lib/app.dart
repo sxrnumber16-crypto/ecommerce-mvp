@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/auth_refresh.dart';
 import 'core/auth_store.dart';
 import 'core/config.dart';
 import 'design/theme.dart';
@@ -32,11 +33,19 @@ import 'features/splash/splash_screen.dart';
 /// Sub-routes live inside the shell so the nav bar persists:
 /// `/product/:id`, `/cart/address`, `/cart/checkout`, `/orders/:id`,
 /// `/admin/products/new`, `/admin/products/:id/edit`, `/admin/orders`.
+///
+/// Stability: the [GoRouter] instance is created ONCE. Auth changes are
+/// surfaced via [authRefreshProvider] as `refreshListenable` (redirects
+/// re-evaluate on notify) and the redirect reads auth with `ref.read`.
+/// Never `ref.watch(authStoreProvider)` here — watching would recreate the
+/// router on every auth flip and drop navigation back to `/splash`.
 final routerProvider = Provider<GoRouter>((ref) {
-  final auth = ref.watch(authStoreProvider);
+  final refresh = ref.read(authRefreshProvider);
   return GoRouter(
     initialLocation: '/splash',
+    refreshListenable: refresh,
     redirect: (context, state) {
+      final auth = ref.read(authStoreProvider);
       final loc = state.uri.toString();
       final loggedIn = auth.isAuthenticated;
 
