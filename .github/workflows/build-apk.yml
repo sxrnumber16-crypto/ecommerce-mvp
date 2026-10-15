@@ -30,6 +30,14 @@ jobs:
             flutter create --platforms=android --project-name myapp --org com.example .
           fi
 
+      - name: Ensure INTERNET permission (release builds need it explicit)
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          if ! grep -q 'android.permission.INTERNET' "$MANIFEST"; then
+            sed -i 's|<manifest xmlns:android="http://schemas.android.com/apk/res/android">|\0\n    <uses-permission android:name="android.permission.INTERNET"/>|' "$MANIFEST"
+          fi
+          grep -c 'android.permission.INTERNET' "$MANIFEST"
+
       - name: Install dependencies
         run: flutter pub get
 
