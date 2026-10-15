@@ -1,7 +1,7 @@
 # APK (mobile_app)
 
-> **APK built via GitHub Actions CI** (2026-10-15, run 38797282133,
-> `app-release.apk` ~54MB (57,102,010 bytes),
+> **APK built via GitHub Actions CI** (2026-10-16, run 38824184663,
+> `app-release.apk` ~56MB (58,948,389 bytes),
 > API_BASE_URL=`https://ecommerce-mvp-production-9169.up.railway.app`).
 > Workflow: `.github/workflows/build-apk.yml` (manual Run workflow).
 > Artifact: Actions run → `shop-apk` → `app-release.apk`.
