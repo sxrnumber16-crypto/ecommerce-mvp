@@ -8,6 +8,7 @@ import '../../core/config.dart';
 import '../../design/components/app_button.dart';
 import '../../design/components/app_card.dart';
 import '../../design/components/state_views.dart';
+import '../../design/tokens/app_colors.dart';
 import '../../design/tokens/app_radius.dart';
 import '../../design/tokens/app_space.dart';
 import '../../design/tokens/app_text.dart';
@@ -18,15 +19,16 @@ import 'address_api.dart';
 import 'cart_store.dart';
 import 'checkout_api.dart';
 
-/// Checkout reskin: order summary with freshly refetched server prices,
-/// selected address, and COD `POST /checkout`.
+/// Checkout navy restyle (Orvix dark-navy concept): navy order summary
+/// with freshly refetched server prices, selected address, and COD
+/// `POST /checkout`.
 ///
 /// Payload contract is unchanged — prices are never sent, only
 /// `{addressId, items: [{productId, qty}], idempotencyKey}` (uuid v4,
 /// generated once per screen so retries replay idempotently; see
 /// [CheckoutApi.place]). The summary [AppCard] renders server figures
 /// only; `deliveryFee`/`total` still come only from the `POST
-/// /checkout` response. New look only.
+/// /checkout` response. Blue accents via tokens. New look only.
 class CheckoutScreen extends ConsumerStatefulWidget {
   final int addressId;
 
@@ -215,7 +217,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 Text(
                                   Config.bdt(preview),
                                   style: AppText.price(context).copyWith(
-                                      color: scheme.primary),
+                                      color: AppColors.price),
                                 ),
                               ],
                             ),
@@ -241,7 +243,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         child: Row(
                           children: [
                             Icon(Icons.location_on_outlined,
-                                color: scheme.primary),
+                                color: AppColors.seed),
                             const SizedBox(width: AppSpace.s),
                             Expanded(
                               child: Text(

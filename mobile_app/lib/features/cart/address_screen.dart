@@ -7,20 +7,21 @@ import '../../design/components/app_card.dart';
 import '../../design/components/app_chip.dart';
 import '../../design/components/app_input.dart';
 import '../../design/components/state_views.dart';
+import '../../design/tokens/app_colors.dart';
 import '../../design/tokens/app_space.dart';
 import '../../design/tokens/app_text.dart';
 import '../../shared/widgets/error_state.dart' show friendlyError;
 import 'address_api.dart';
 
-/// Address step reskin.
+/// Address step navy restyle (Orvix dark-navy concept).
 ///
 /// Data flow is identical to the legacy screen: `GET /addresses` list
 /// with the default (server-ordered first) pre-selected, `POST
 /// /addresses` form (`label`/`line1`/`city`/`phone`, `postal` optional),
 /// and continue via `push('/cart/checkout?addressId=<id>')`. The
-/// [RadioGroup]/[RadioListTile] selection pattern is kept. New look
-/// only: address [AppCard]s, an [AppCard] form with [AppInput] fields,
-/// and [AppButton] actions.
+/// [RadioGroup]/[RadioListTile] selection pattern is kept (blue active
+/// states via tokens). New look only: address [AppCard]s, an [AppCard]
+/// form with [AppInput] fields, and blue [AppButton] actions.
 class AddressScreen extends ConsumerStatefulWidget {
   const AddressScreen({super.key});
 
@@ -141,6 +142,7 @@ class _AddressScreenState extends ConsumerState<AddressScreen> {
                           child: AppCard(
                             child: RadioListTile<int>(
                               value: a.id,
+                              activeColor: AppColors.seed,
                               title: Text(
                                 '${a.label} — ${a.line1}',
                                 style: AppText.title(context),
@@ -210,6 +212,7 @@ class _AddressScreenState extends ConsumerState<AddressScreen> {
                         ),
                         CheckboxListTile(
                           value: _isDefault,
+                          activeColor: AppColors.seed,
                           onChanged: (v) =>
                               setState(() => _isDefault = v ?? false),
                           title:

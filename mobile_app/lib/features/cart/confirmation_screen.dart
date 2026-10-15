@@ -6,19 +6,21 @@ import '../../core/config.dart';
 import '../../design/components/app_button.dart';
 import '../../design/components/app_card.dart';
 import '../../design/components/state_views.dart';
+import '../../design/tokens/app_colors.dart';
 import '../../design/tokens/app_space.dart';
 import '../../design/tokens/app_text.dart';
 import '../../shared/widgets/error_state.dart' show friendlyError;
 import '../orders/orders_api.dart';
 
-/// Post-order success reskin: order id, `pending` status, `unpaid`
-/// payment, and a COD reassurance message.
+/// Post-order success navy restyle (Orvix dark-navy concept): order id,
+/// `pending` status, `unpaid` payment, and a COD reassurance message.
 ///
 /// Data flow is identical to the legacy screen — all figures come from
 /// `GET /orders/:id` via `ordersApiProvider.detail(id)`; buttons route
 /// to `/orders/:id` and `/home`. COD messaging stays `pending`/`unpaid`.
-/// New look only: [AppCard] summary, [AppButton] actions, and a
-/// [ScaleTransition] success pop (no new packages).
+/// New look only: navy [AppCard] summary, blue [AppButton] actions, and
+/// a [ScaleTransition] success pop (no new packages). Blue accents via
+/// tokens.
 class ConfirmationScreen extends ConsumerStatefulWidget {
   final int orderId;
 
@@ -103,12 +105,12 @@ class _ConfirmationScreenState extends ConsumerState<ConfirmationScreen>
                   height: 96,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: scheme.primary.withValues(alpha: 0.12),
+                    color: AppColors.seed.withValues(alpha: 0.12),
                   ),
                   child: Icon(
                     Icons.check_circle,
                     size: 64,
-                    color: scheme.primary,
+                    color: AppColors.seed,
                   ),
                 ),
               ),
@@ -168,7 +170,7 @@ class _ConfirmationScreenState extends ConsumerState<ConfirmationScreen>
                           Text(
                             Config.bdt(order.total),
                             style: AppText.price(context).copyWith(
-                                color: scheme.primary),
+                                color: AppColors.price),
                           ),
                         ],
                       ),

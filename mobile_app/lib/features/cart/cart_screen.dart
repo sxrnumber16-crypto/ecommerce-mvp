@@ -7,20 +7,22 @@ import '../../core/config.dart';
 import '../../design/components/app_button.dart';
 import '../../design/components/app_card.dart';
 import '../../design/components/state_views.dart';
+import '../../design/tokens/app_colors.dart';
 import '../../design/tokens/app_radius.dart';
 import '../../design/tokens/app_space.dart';
 import '../../design/tokens/app_text.dart';
 import '../../shared/widgets/qty_stepper.dart';
 import 'cart_store.dart';
 
-/// Cart tab reskin.
+/// Cart tab navy restyle (Orvix dark-navy concept).
 ///
 /// Data flow is identical to the legacy screen: lines from
 /// [cartStoreProvider] (qty edits via `setQty`, removals via `remove`),
 /// preview subtotal folded from the cached snapshots, and continue via
-/// `push('/cart/address')`. The banner states the server calculates the
-/// final totals at checkout. New look only: line-item [AppCard]s with
-/// steppers, a summary [AppCard], and an [AppButton] CTA.
+/// `push('/cart/address')`. The navy banner states the server calculates
+/// the final totals at checkout. New look only: navy banner, line-item
+/// [AppCard]s with steppers, a summary [AppCard], and a blue [AppButton]
+/// CTA. No ratings/sizes/discount rows.
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
 
@@ -44,12 +46,12 @@ class CartScreen extends ConsumerWidget {
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(AppSpace.m),
-                  color:
-                      Theme.of(context).colorScheme.surfaceContainerHighest,
+                  color: AppColors.navyCard,
                   child: Text(
                     'চূড়ান্ত মূল্য সার্ভার হিসাব করবে / Final totals are calculated by the server at checkout',
                     textAlign: TextAlign.center,
-                    style: AppText.label(context),
+                    style: AppText.label(context)
+                        .copyWith(color: Colors.white),
                   ),
                 ),
                 Expanded(
@@ -109,9 +111,7 @@ class CartScreen extends ConsumerWidget {
                                     Text(
                                       Config.bdt(p.priceBdt),
                                       style: AppText.price(context).copyWith(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary,
+                                        color: AppColors.price,
                                       ),
                                     ),
                                     QtyStepper(
@@ -155,9 +155,7 @@ class CartScreen extends ConsumerWidget {
                                 Text(
                                   Config.bdt(preview),
                                   style: AppText.price(context).copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primary,
+                                    color: AppColors.price,
                                   ),
                                 ),
                               ],

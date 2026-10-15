@@ -18,13 +18,14 @@ import '../cart/cart_store.dart';
 import 'catalog_api.dart';
 import 'models.dart';
 
-/// `GET /products/:id`: gallery, price/stock header, qty stepper, and a
-/// sticky bottom Add-to-Cart bar (disabled when out of stock).
+/// `GET /products/:id`: navy gallery card, price/stock header, qty stepper,
+/// and a sticky bottom Add-to-Cart bar (disabled when out of stock).
 ///
-/// Data flow is identical to the legacy screen: product via
-/// `catalogApiProvider.product(id)`, add via
+/// Navy restyle (Orvix dark-navy concept): navy sticky bar, blue price and
+/// gallery dots via tokens. Data flow is identical to the legacy screen:
+/// product via `catalogApiProvider.product(id)`, add via
 /// `cartStoreProvider.add(product, qty)`, then a SnackBar with a
-/// `/cart` action. New look only.
+/// `/cart` action. New look only. No ratings/sizes/discount rows.
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final int productId;
 
@@ -130,7 +131,7 @@ class _DetailBody extends ConsumerWidget {
               Text(
                 Config.bdt(product.priceBdt),
                 style: AppText.price(context).copyWith(
-                  color: scheme.primary,
+                  color: AppColors.price,
                   fontSize: 22,
                 ),
               ),
@@ -218,7 +219,7 @@ class _DetailBody extends ConsumerWidget {
           child: Container(
             padding: const EdgeInsets.all(AppSpace.l),
             decoration: BoxDecoration(
-              color: scheme.surface,
+              color: AppColors.navyCard,
               border: Border(
                 top: BorderSide(color: scheme.surfaceContainerHighest),
               ),
@@ -361,7 +362,7 @@ class _GalleryState extends State<_Gallery> {
                       borderRadius:
                           BorderRadius.circular(AppRadius.pill),
                       color: i == _index
-                          ? scheme.primary
+                          ? AppColors.seed
                           : scheme.surfaceContainerHighest,
                     ),
                   ),
