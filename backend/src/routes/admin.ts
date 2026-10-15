@@ -53,6 +53,10 @@ const orderStatusSchema = z.object({
   status: z.enum(["pending", "confirmed", "shipped", "delivered", "cancelled"]),
 });
 
+const paymentStatusSchema = z.object({
+  status: z.enum(["paid", "unpaid"]),
+});
+
 adminRouter.get("/dashboard", async (_req: Request, res: Response) => {
   const [users, products, activeProducts, grouped, lowStockItems, revenueAgg] = await Promise.all([
     prisma.user.count(),
@@ -312,4 +316,39 @@ adminRouter.patch("/orders/:id/status", async (req: Request, res: Response) => {
     },
   });
   res.status(200).json(updated);
+});
+
+adminRouter.patch("/orders/:id/payment", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) {
+    res.status(400).json({ error: "validation", details: "invalid id" });
+    return;
+  }
+  const parsed = paymentStatusSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "validation", details: parsed.error.flatten() });
+    return;
+  }
+  const existing = await prisma.order.findUnique({ where: { id }, include: { payment: true } });
+  if (!existing) {
+    res.status(404).json({ error: "not found" });
+    return;
+  }
+  if (existing.status === "cancelled") {
+    res.status(409).json({ error: "order cancelled" });
+    return;
+  }
+  if (!existing.payment || existing.payment.method !== "COD") {
+    res.status(409).json({ error: "COD only" });
+    return;
+  }
+  const updatedPayment = await prisma.payment.update({
+    where: { orderId: id },
+    data: { status: parsed.data.status },
+  });
+  res.status(200).json({
+    id: existing.id,
+    status: existing.status,
+    payment: { status: updatedPayment.status, method: updatedPayment.method },
+  });
 });

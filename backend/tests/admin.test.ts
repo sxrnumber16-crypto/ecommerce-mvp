@@ -348,4 +348,286 @@ describe("admin", () => {
       .set("Authorization", `Bearer ${adminToken}`);
     expect(del.status).toBe(404);
   });
+
+  test("COD payment paid-unpaid-paid toggle visible to customer", async () => {
+    const cust = await register();
+    const addr = await createAddress(cust.accessToken);
+    const cat = await prisma.category.findUniqueOrThrow({ where: { slug: "clothing" } });
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+    const prod = await prisma.product.create({
+      data: {
+        name: `Admin-Pay-Toggle-${suffix}`,
+        slug: `admin-pay-toggle-${suffix}`,
+        description: "payment toggle product",
+        priceBdt: 600,
+        stock: 10,
+        categoryId: cat.id,
+        isActive: true,
+      },
+    });
+    let orderId = 0;
+    try {
+      const co = await request(app)
+        .post("/api/v1/checkout")
+        .set("Authorization", `Bearer ${cust.accessToken}`)
+        .send({
+          addressId: addr.id,
+          items: [{ productId: prod.id, qty: 1 }],
+          idempotencyKey: uniqKey("paytog"),
+        });
+      expect(co.status).toBe(201);
+      orderId = co.body.id;
+      expect(co.body.payment.status).toBe("unpaid");
+      expect(co.body.payment.method).toBe("COD");
+
+      const toPaid = await request(app)
+        .patch(`/api/v1/admin/orders/${orderId}/payment`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ status: "paid" });
+      expect(toPaid.status).toBe(200);
+      expect(toPaid.body.id).toBe(orderId);
+      expect(toPaid.body.status).toBe("pending");
+      expect(toPaid.body.payment).toMatchObject({ status: "paid", method: "COD" });
+
+      const seenPaid = await request(app)
+        .get(`/api/v1/orders/${orderId}`)
+        .set("Authorization", `Bearer ${cust.accessToken}`);
+      expect(seenPaid.status).toBe(200);
+      expect(seenPaid.body.payment.status).toBe("paid");
+      expect(seenPaid.body.status).toBe("pending");
+
+      const toUnpaid = await request(app)
+        .patch(`/api/v1/admin/orders/${orderId}/payment`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ status: "unpaid" });
+      expect(toUnpaid.status).toBe(200);
+      expect(toUnpaid.body.payment).toMatchObject({ status: "unpaid", method: "COD" });
+
+      const seenUnpaid = await request(app)
+        .get(`/api/v1/orders/${orderId}`)
+        .set("Authorization", `Bearer ${cust.accessToken}`);
+      expect(seenUnpaid.status).toBe(200);
+      expect(seenUnpaid.body.payment.status).toBe("unpaid");
+
+      const backPaid = await request(app)
+        .patch(`/api/v1/admin/orders/${orderId}/payment`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ status: "paid" });
+      expect(backPaid.status).toBe(200);
+      expect(backPaid.body.payment.status).toBe("paid");
+    } finally {
+      if (orderId) {
+        await prisma.payment.deleteMany({ where: { orderId } }).catch(() => {});
+        await prisma.orderItem.deleteMany({ where: { orderId } }).catch(() => {});
+        await prisma.order.delete({ where: { id: orderId } }).catch(() => {});
+      }
+      await prisma.product.delete({ where: { id: prod.id } }).catch(() => {});
+    }
+  });
+
+  test("payment toggle 400 invalid id/status + 404 missing", async () => {
+    const cust = await register();
+    const addr = await createAddress(cust.accessToken);
+    const cat = await prisma.category.findUniqueOrThrow({ where: { slug: "clothing" } });
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+    const prod = await prisma.product.create({
+      data: {
+        name: `Admin-Pay-Bad-${suffix}`,
+        slug: `admin-pay-bad-${suffix}`,
+        description: "x",
+        priceBdt: 500,
+        stock: 10,
+        categoryId: cat.id,
+        isActive: true,
+      },
+    });
+    let orderId = 0;
+    try {
+      const co = await request(app)
+        .post("/api/v1/checkout")
+        .set("Authorization", `Bearer ${cust.accessToken}`)
+        .send({
+          addressId: addr.id,
+          items: [{ productId: prod.id, qty: 1 }],
+          idempotencyKey: uniqKey("paybad"),
+        });
+      expect(co.status).toBe(201);
+      orderId = co.body.id;
+
+      const badId = await request(app)
+        .patch("/api/v1/admin/orders/abc/payment")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ status: "paid" });
+      expect(badId.status).toBe(400);
+
+      const badStatus = await request(app)
+        .patch(`/api/v1/admin/orders/${orderId}/payment`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ status: "bogus" });
+      expect(badStatus.status).toBe(400);
+
+      const missingStatus = await request(app)
+        .patch(`/api/v1/admin/orders/${orderId}/payment`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({});
+      expect(missingStatus.status).toBe(400);
+
+      const missing = await request(app)
+        .patch("/api/v1/admin/orders/99999999/payment")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ status: "paid" });
+      expect(missing.status).toBe(404);
+    } finally {
+      if (orderId) {
+        await prisma.payment.deleteMany({ where: { orderId } }).catch(() => {});
+        await prisma.orderItem.deleteMany({ where: { orderId } }).catch(() => {});
+        await prisma.order.delete({ where: { id: orderId } }).catch(() => {});
+      }
+      await prisma.product.delete({ where: { id: prod.id } }).catch(() => {});
+    }
+  });
+
+  test("payment toggle 409 cancelled order", async () => {
+    const cust = await register();
+    const addr = await createAddress(cust.accessToken);
+    const cat = await prisma.category.findUniqueOrThrow({ where: { slug: "clothing" } });
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+    const prod = await prisma.product.create({
+      data: {
+        name: `Admin-Pay-Cancel-${suffix}`,
+        slug: `admin-pay-cancel-${suffix}`,
+        description: "x",
+        priceBdt: 500,
+        stock: 10,
+        categoryId: cat.id,
+        isActive: true,
+      },
+    });
+    let orderId = 0;
+    try {
+      const co = await request(app)
+        .post("/api/v1/checkout")
+        .set("Authorization", `Bearer ${cust.accessToken}`)
+        .send({
+          addressId: addr.id,
+          items: [{ productId: prod.id, qty: 1 }],
+          idempotencyKey: uniqKey("paycancel"),
+        });
+      expect(co.status).toBe(201);
+      orderId = co.body.id;
+
+      const cancel = await request(app)
+        .patch(`/api/v1/admin/orders/${orderId}/status`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ status: "cancelled" });
+      expect(cancel.status).toBe(200);
+
+      const res = await request(app)
+        .patch(`/api/v1/admin/orders/${orderId}/payment`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ status: "paid" });
+      expect(res.status).toBe(409);
+    } finally {
+      if (orderId) {
+        await prisma.payment.deleteMany({ where: { orderId } }).catch(() => {});
+        await prisma.orderItem.deleteMany({ where: { orderId } }).catch(() => {});
+        await prisma.order.delete({ where: { id: orderId } }).catch(() => {});
+      }
+      await prisma.product.delete({ where: { id: prod.id } }).catch(() => {});
+    }
+  });
+
+  test("payment toggle 409 non-COD method", async () => {
+    const cust = await register();
+    const addr = await createAddress(cust.accessToken);
+    const cat = await prisma.category.findUniqueOrThrow({ where: { slug: "clothing" } });
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+    const prod = await prisma.product.create({
+      data: {
+        name: `Admin-Pay-Method-${suffix}`,
+        slug: `admin-pay-method-${suffix}`,
+        description: "x",
+        priceBdt: 500,
+        stock: 10,
+        categoryId: cat.id,
+        isActive: true,
+      },
+    });
+    let orderId = 0;
+    try {
+      const co = await request(app)
+        .post("/api/v1/checkout")
+        .set("Authorization", `Bearer ${cust.accessToken}`)
+        .send({
+          addressId: addr.id,
+          items: [{ productId: prod.id, qty: 1 }],
+          idempotencyKey: uniqKey("paymethod"),
+        });
+      expect(co.status).toBe(201);
+      orderId = co.body.id;
+      await prisma.payment.update({ where: { orderId }, data: { method: "bKash" } });
+
+      const res = await request(app)
+        .patch(`/api/v1/admin/orders/${orderId}/payment`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ status: "paid" });
+      expect(res.status).toBe(409);
+    } finally {
+      if (orderId) {
+        await prisma.payment.deleteMany({ where: { orderId } }).catch(() => {});
+        await prisma.orderItem.deleteMany({ where: { orderId } }).catch(() => {});
+        await prisma.order.delete({ where: { id: orderId } }).catch(() => {});
+      }
+      await prisma.product.delete({ where: { id: prod.id } }).catch(() => {});
+    }
+  });
+
+  test("payment toggle 403 customer + 401 anon", async () => {
+    const cust = await register();
+    const addr = await createAddress(cust.accessToken);
+    const cat = await prisma.category.findUniqueOrThrow({ where: { slug: "clothing" } });
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+    const prod = await prisma.product.create({
+      data: {
+        name: `Admin-Pay-Auth-${suffix}`,
+        slug: `admin-pay-auth-${suffix}`,
+        description: "x",
+        priceBdt: 500,
+        stock: 10,
+        categoryId: cat.id,
+        isActive: true,
+      },
+    });
+    let orderId = 0;
+    try {
+      const co = await request(app)
+        .post("/api/v1/checkout")
+        .set("Authorization", `Bearer ${cust.accessToken}`)
+        .send({
+          addressId: addr.id,
+          items: [{ productId: prod.id, qty: 1 }],
+          idempotencyKey: uniqKey("payauth"),
+        });
+      expect(co.status).toBe(201);
+      orderId = co.body.id;
+
+      const forbidden = await request(app)
+        .patch(`/api/v1/admin/orders/${orderId}/payment`)
+        .set("Authorization", `Bearer ${cust.accessToken}`)
+        .send({ status: "paid" });
+      expect(forbidden.status).toBe(403);
+
+      const anon = await request(app)
+        .patch(`/api/v1/admin/orders/${orderId}/payment`)
+        .send({ status: "paid" });
+      expect(anon.status).toBe(401);
+    } finally {
+      if (orderId) {
+        await prisma.payment.deleteMany({ where: { orderId } }).catch(() => {});
+        await prisma.orderItem.deleteMany({ where: { orderId } }).catch(() => {});
+        await prisma.order.delete({ where: { id: orderId } }).catch(() => {});
+      }
+      await prisma.product.delete({ where: { id: prod.id } }).catch(() => {});
+    }
+  });
 });
