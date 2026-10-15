@@ -34,6 +34,7 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
   _CheckResult? _tcp;
   _CheckResult? _https;
   bool _running = false;
+  late final TextEditingController _hostController;
 
   String get _baseUrl => Config.apiBaseUrl;
 
@@ -45,10 +46,42 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
     }
   }
 
+  /// Hostname typed by the user; falls back to the baked API host.
+  String get _effectiveHost {
+    final typed = _hostController.text.trim();
+    if (typed.isEmpty) return _host;
+    if (typed.contains('://')) {
+      try {
+        final parsed = Uri.parse(typed);
+        if (parsed.host.isNotEmpty) return parsed.host;
+      } catch (_) {
+        // Fall through to raw handling below.
+      }
+    }
+    // Strip any path/query/fragment and optional port.
+    final noPath = typed.split('/').first.trim();
+    final noPort = noPath.split(':').first.trim();
+    return noPort.isEmpty ? _host : noPort;
+  }
+
+  String get _effectiveBaseUrl {
+    if (_effectiveHost == _host) return _baseUrl;
+    final scheme = Uri.tryParse(_baseUrl)?.scheme;
+    final s = (scheme == null || scheme.isEmpty) ? 'https' : scheme;
+    return '$s://$_effectiveHost';
+  }
+
   @override
   void initState() {
     super.initState();
+    _hostController = TextEditingController(text: _host);
     _runAll();
+  }
+
+  @override
+  void dispose() {
+    _hostController.dispose();
+    super.dispose();
   }
 
   Future<void> _runAll() async {
@@ -74,7 +107,7 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
   }
 
   Future<void> _runDns() async {
-    final host = _host;
+    final host = _effectiveHost;
     if (host.isEmpty) {
       if (!mounted) return;
       setState(
@@ -109,7 +142,7 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
   }
 
   Future<void> _runTcp() async {
-    final host = _host;
+    final host = _effectiveHost;
     if (host.isEmpty) {
       if (!mounted) return;
       setState(
@@ -146,7 +179,7 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
   Future<void> _runHttps() async {
     final stopwatch = Stopwatch()..start();
     try {
-      final dio = buildUnauthenticatedDio(baseUrl: _baseUrl);
+      final dio = buildUnauthenticatedDio(baseUrl: _effectiveBaseUrl);
       final response = await dio.get<dynamic>('/health').timeout(_timeout);
       stopwatch.stop();
       if (!mounted) return;
@@ -192,6 +225,31 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
+            ),
+            const SizedBox(height: AppSpace.l),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _hostController,
+                    decoration: const InputDecoration(
+                      labelText: 'Host',
+                      hintText: 'example.com',
+                      border: OutlineInputBorder(),
+                    ),
+                    autocorrect: false,
+                    onSubmitted: (_) {
+                      if (!_running) _runAll();
+                    },
+                  ),
+                ),
+                const SizedBox(width: AppSpace.m),
+                FilledButton(
+                  onPressed: _running ? null : _runAll,
+                  child: const Text('Test'),
+                ),
+              ],
             ),
             const SizedBox(height: AppSpace.l),
             _CheckTile(title: 'DNS', result: _dns),
