@@ -247,7 +247,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 style: AppText.body(context),
               ),
               value: inStock,
-              activeColor: AppColors.seed,
+              activeThumbColor: AppColors.seed,
               contentPadding: EdgeInsets.zero,
               onChanged: (v) => setSheet(() => inStock = v),
             ),
