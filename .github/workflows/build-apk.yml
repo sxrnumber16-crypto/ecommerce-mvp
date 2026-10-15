@@ -40,7 +40,7 @@ jobs:
         run: flutter test
 
       - name: Build release APK
-        run: flutter build apk --release --dart-define API_BASE_URL=https://ecommerce-mvp-production-f5e8.up.railway.app
+        run: flutter build apk --release --dart-define API_BASE_URL=https://ecommerce-mvp-production-9169.up.railway.app
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
