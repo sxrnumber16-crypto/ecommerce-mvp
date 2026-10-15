@@ -68,8 +68,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               Container(
                 padding: const EdgeInsets.all(AppSpace.xl),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [scheme.primary, scheme.secondary],
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF16294A), Color(0xFF2E7CF6)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
