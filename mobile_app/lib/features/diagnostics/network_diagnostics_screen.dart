@@ -68,10 +68,9 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
     } catch (_) {
       // Individual checks already record their own errors; this guards
       // the sequencer itself so the screen never crashes.
-    } finally {
-      if (!mounted) return;
-      setState(() => _running = false);
     }
+    if (!mounted) return;
+    setState(() => _running = false);
   }
 
   Future<void> _runDns() async {
