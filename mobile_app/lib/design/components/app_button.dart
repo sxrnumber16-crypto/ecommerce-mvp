@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import '../tokens/app_radius.dart';
 import '../tokens/app_space.dart';
 
-/// Primary action button with a 52dp minimum height and card radius.
+/// Primary action button with a 52dp minimum height and pill shape.
 ///
-/// Filled with the theme primary color by default; [outlined] renders
+/// Filled with the theme primary (electric-blue) color by default; [outlined] renders
 /// an outlined variant. While [loading] the button is disabled and
 /// shows a spinner next to the label.
 class AppButton extends StatelessWidget {
@@ -25,7 +25,7 @@ class AppButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(AppRadius.card),
+      borderRadius: BorderRadius.circular(AppRadius.pill),
     );
     const minSize = Size(64, 52);
     const padding = EdgeInsets.symmetric(

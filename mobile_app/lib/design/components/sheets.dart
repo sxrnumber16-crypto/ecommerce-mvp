@@ -13,6 +13,7 @@ Future<T?> showAppSheet<T>(
 }) {
   return showModalBottomSheet<T>(
     context: context,
+    backgroundColor: Theme.of(context).colorScheme.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(
         top: Radius.circular(AppRadius.sheet),
