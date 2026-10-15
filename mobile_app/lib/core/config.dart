@@ -11,7 +11,7 @@ class Config {
 
   static const storeName = String.fromEnvironment(
     'STORE_NAME',
-    defaultValue: 'Demo Shop',
+    defaultValue: 'Orvix Shop',
   );
 
   /// Bengali-safe Taka formatter: always uses ASCII digits + thousands

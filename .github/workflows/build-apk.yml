@@ -38,6 +38,11 @@ jobs:
           fi
           grep -c 'android.permission.INTERNET' "$MANIFEST"
 
+      - name: Set app label to Orvix Shop
+        run: |
+          sed -i 's|android:label="myapp"|android:label="Orvix Shop"|' android/app/src/main/AndroidManifest.xml
+          grep -c 'android:label="Orvix Shop"' android/app/src/main/AndroidManifest.xml
+
       - name: Install dependencies
         run: flutter pub get
 
