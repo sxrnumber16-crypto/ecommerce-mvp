@@ -58,6 +58,54 @@ const paymentStatusSchema = z.object({
   status: z.enum(["paid", "unpaid"]),
 });
 
+const adminProductsQuerySchema = z.object({
+  search: z.string().optional(),
+  active: z.enum(["all", "true", "false"]).default("all"),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(12),
+});
+
+adminRouter.get("/products", async (req: Request, res: Response) => {
+  const parsed = adminProductsQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: "validation", details: parsed.error.flatten() });
+    return;
+  }
+  const { search, active, page, limit } = parsed.data;
+  const where: any = {};
+  if (active !== "all") {
+    where.isActive = active === "true";
+  }
+  const q = search?.trim();
+  if (q) {
+    where.OR = [
+      { name: { contains: q } },
+      { description: { contains: q } },
+      { slug: { contains: q } },
+    ];
+  }
+  const [total, items] = await Promise.all([
+    prisma.product.count({ where }),
+    prisma.product.findMany({
+      where,
+      orderBy: { id: "asc" },
+      skip: (page - 1) * limit,
+      take: limit,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        priceBdt: true,
+        stock: true,
+        imageUrl: true,
+        isActive: true,
+        category: { select: { slug: true, name: true } },
+      },
+    }),
+  ]);
+  res.status(200).json({ items, page, limit, total });
+});
+
 adminRouter.get("/dashboard", async (_req: Request, res: Response) => {
   const [users, products, activeProducts, grouped, lowStockItems, revenueAgg] = await Promise.all([
     prisma.user.count(),
@@ -272,8 +320,13 @@ adminRouter.delete("/products/:id", async (req: Request, res: Response) => {
     res.status(404).json({ error: "not found" });
     return;
   }
-  const updated = await prisma.product.update({ where: { id }, data: { isActive: false } });
-  res.status(200).json(updated);
+  const orderCount = await prisma.orderItem.count({ where: { productId: id } });
+  if (orderCount > 0) {
+    res.status(409).json({ error: "has_orders" });
+    return;
+  }
+  await prisma.product.delete({ where: { id } });
+  res.status(200).json({ deleted: true });
 });
 
 adminRouter.get("/orders", async (req: Request, res: Response) => {
