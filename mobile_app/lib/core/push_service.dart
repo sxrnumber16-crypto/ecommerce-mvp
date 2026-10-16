@@ -78,6 +78,7 @@ class PushService {
     this._api, {
     FirebaseMessaging? messaging,
     FlutterLocalNotificationsPlugin? local,
+    // ignore: prefer_initializing_formals
   })  : _messaging = messaging,
         _local = local ?? FlutterLocalNotificationsPlugin();
 
@@ -142,12 +143,13 @@ class PushService {
       debugPrint('[push] token-refresh listener skipped: $e');
     }
     try {
-      msg.onMessage.listen(_showForegroundBanner);
+      // Static in firebase_messaging: must go through the class, not `msg`.
+      FirebaseMessaging.onMessage.listen(_showForegroundBanner);
     } catch (e) {
       debugPrint('[push] onMessage skipped: $e');
     }
     try {
-      msg.onMessageOpenedApp.listen(_routeMessage);
+      FirebaseMessaging.onMessageOpenedApp.listen(_routeMessage);
     } catch (e) {
       debugPrint('[push] onMessageOpenedApp skipped: $e');
     }

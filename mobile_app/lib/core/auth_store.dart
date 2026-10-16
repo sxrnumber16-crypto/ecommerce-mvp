@@ -58,6 +58,7 @@ class AuthStore extends StateNotifier<AuthState> {
   final PushService? _push;
 
   AuthStore(this.api, {PushService? push})
+      // ignore: prefer_initializing_formals
       : _push = push,
         super(const AuthState());
 
