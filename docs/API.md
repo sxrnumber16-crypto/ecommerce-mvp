@@ -154,6 +154,46 @@ Another user's orders never appear (scoped by `userId`).
 `200` order with `items`, `payment`, `address`. Others' ids → `404`
 (intentionally indistinguishable from missing). Bad id → `404`.
 
+## Devices & push (auth; triggers are server-side)
+
+### Register token — `POST /api/v1/devices` (auth)
+
+```json
+{ "token": "<FCM registration token>" }
+```
+
+- `token` zod string, 10–255 chars. Upsert on the unique token value:
+  first registration → `201` created row; re-registering your own token →
+  `200` same row; registering a token owned by another user transfers it
+  to you → `200` (device login-switch).
+- Errors: `400` validation, `401` anon.
+
+### Unregister token — `DELETE /api/v1/devices` (auth)
+
+```json
+{ "token": "<FCM registration token>" }
+```
+
+- Deletes only YOUR row for that token (`deleteMany` scoped by `userId`);
+  always `200 { "ok": true }`, even when nothing matched. Logout path —
+  call BEFORE local tokens are cleared (endpoint is authed).
+- Errors: `400` validation, `401` anon.
+
+### Push behavior (FCM via `firebase-admin`)
+
+- Sender inits from `FIREBASE_SERVICE_ACCOUNT` env (full service-account
+  JSON string). Absent/invalid → push silently disabled (startup warn),
+  requests NEVER fail because of push.
+- Trigger A — admin `POST /api/v1/admin/products` success → broadcast to
+  topic `new_products`: `{ type: "new_product", productId }`.
+- Trigger B — admin `PATCH /api/v1/admin/orders/:id/status` success →
+  only the ordering user's tokens (`sendEachForMulticast`):
+  `{ type: "order_update", orderId, status }`. No tokens → skipped.
+  Stale tokens (`messaging/registration-token-not-registered`) are pruned.
+- App tap targets: `new_product` → `/product/:id`, `order_update` →
+  `/orders/:id` (foreground banner, background, and terminated launches;
+  unknown type or missing/empty id → stay put).
+
 ## Admin (`/admin`, auth + `role: admin`, else `401`/`403`)
 
 ### Dashboard — `GET /api/v1/admin/dashboard`

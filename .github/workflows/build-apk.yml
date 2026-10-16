@@ -30,6 +30,108 @@ jobs:
             flutter create --platforms=android --project-name myapp --org com.example .
           fi
 
+      - name: Place google-services.json
+        run: |
+          cp google-services.json android/app/google-services.json
+          test -f android/app/google-services.json
+          ls -l android/app/google-services.json
+
+      - name: Apply Google Services plugin
+        run: |
+          echo "=== gradle shape ==="
+          ls -l android/settings.gradle* android/app/build.gradle*
+          echo "=== settings content ==="
+          cat android/settings.gradle*
+          echo "=== app build content ==="
+          cat android/app/build.gradle*
+          python3 - <<'EOF'
+          import glob
+
+          GMS_VERSION = "4.4.2"
+
+          def patch(path, kind):
+              with open(path) as f:
+                  src = f.read()
+              if "com.google.gms.google-services" in src:
+                  print(f"{path}: already patched")
+                  return src
+              if kind == "settings-groovy":
+                  old = 'id "com.android.application" version "'
+                  assert old in src, f"{path}: unexpected Groovy settings shape"
+                  src = src.replace(
+                      old,
+                      f'id "com.google.gms.google-services" version "{GMS_VERSION}" apply false\n        id "com.android.application" version "',
+                      1,
+                  )
+                  # Top-level plugins block is the LAST `plugins {` block;
+                  # insert the unversioned id before its closing brace.
+                  idx = src.rfind("plugins {")
+                  assert idx != -1, f"{path}: top-level plugins block missing"
+                  close = src.find("\n}", idx)
+                  assert close != -1, f"{path}: plugins block never closed"
+                  src = (src[:close]
+                         + '\n    id "com.google.gms.google-services"'
+                         + src[close:])
+              elif kind == "settings-kts":
+                  old = 'id("com.android.application") version "'
+                  assert old in src, f"{path}: unexpected KTS settings shape"
+                  src = src.replace(
+                      old,
+                      f'id("com.google.gms.google-services") version "{GMS_VERSION}" apply false\n        id("com.android.application") version "',
+                      1,
+                  )
+                  idx = src.rfind("plugins {")
+                  assert idx != -1, f"{path}: top-level plugins block missing"
+                  close = src.find("\n}", idx)
+                  assert close != -1, f"{path}: plugins block never closed"
+                  src = (src[:close]
+                         + '\n    id("com.google.gms.google-services")'
+                         + src[close:])
+              elif kind == "app-groovy":
+                  lines = src.splitlines(keepends=True)
+                  out, in_plugins, done = [], False, False
+                  for i, line in enumerate(lines):
+                      out.append(line)
+                      if not in_plugins and line.strip() == "plugins {":
+                          in_plugins = True
+                      elif in_plugins and line.strip() == "}":
+                          out.insert(len(out) - 1, '    id "com.google.gms.google-services"\n')
+                          in_plugins, done = False, True
+                  assert done, f"{path}: plugins block not found"
+                  src = "".join(out)
+              elif kind == "app-kts":
+                  lines = src.splitlines(keepends=True)
+                  out, in_plugins, done = [], False, False
+                  for i, line in enumerate(lines):
+                      out.append(line)
+                      if not in_plugins and line.strip() == "plugins {":
+                          in_plugins = True
+                      elif in_plugins and line.strip() == "}":
+                          out.insert(len(out) - 1, '    id("com.google.gms.google-services")\n')
+                          in_plugins, done = False, True
+                  assert done, f"{path}: plugins block not found"
+                  src = "".join(out)
+              else:
+                  raise AssertionError(f"unknown kind {kind}")
+              with open(path, "w") as f:
+                  f.write(src)
+              print(f"{path}: patched ({kind})")
+              return src
+
+          settings = glob.glob("android/settings.gradle*")
+          app_builds = glob.glob("android/app/build.gradle*")
+          assert settings, "no android/settings.gradle* found"
+          assert app_builds, "no android/app/build.gradle* found"
+          for p in settings:
+              kind = "settings-kts" if p.endswith(".kts") else "settings-groovy"
+              patch(p, kind)
+          for p in app_builds:
+              kind = "app-kts" if p.endswith(".kts") else "app-groovy"
+              patch(p, kind)
+          EOF
+          grep -r google-services android/settings.gradle* android/app/build.gradle* \
+            || (echo "GMS plugin application FAILED" >&2; exit 1)
+
       - name: Ensure INTERNET permission (release builds need it explicit)
         run: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
