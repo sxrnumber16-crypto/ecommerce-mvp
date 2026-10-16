@@ -191,11 +191,19 @@ const adminPaymentStatuses = <String>['paid', 'unpaid'];
 
 /// Admin endpoints behind `requireAuth + requireAdmin` (see
 /// `backend/src/routes/admin.ts`):
+/// - `GET /admin/products?search=&active=&page=&limit=` (requireAdmin):
+///   `{items[{id,name,slug,priceBdt,stock,imageUrl,isActive,
+///   category{slug,name}}],page,limit,total}` — includes inactive.
+/// - `DELETE /admin/products/:id` (requireAdmin): hard delete;
+///   `409 {error:"has_orders"}` when order items reference the product,
+///   `404` for unknown ids.
 /// - `GET /admin/dashboard`
 /// - `POST /admin/products` `{name, slug?, categoryId, description?,
 ///   priceBdt, stock?, imageUrl?, isActive?}`
-/// - `PATCH /admin/products/:id` (partial of the above)
-/// - `DELETE /admin/products/:id` (soft: sets `isActive=false`)
+/// - `PATCH /admin/products/:id` (partial of the above; also used for
+///   deactivate/reactivate via `{isActive: false/true}`)
+/// - `DELETE /admin/products/:id` (hard delete; `409` when referenced
+///   by orders — callers offer deactivate via PATCH instead)
 /// - `GET /admin/orders?page=&limit=`
 /// - `PATCH /admin/orders/:id/status` `{status}`
 /// - `PATCH /admin/orders/:id/payment` `{status: paid|unpaid}`
@@ -222,6 +230,41 @@ class AdminApi {
     return resp.data as Map<String, dynamic>;
   }
 
+  /// Admin product list from `GET /admin/products` (includes
+  /// inactive; decoded envelope map
+  /// `{items,page,limit,total}` — callers parse `items` via
+  /// `Product.fromJson`, which tolerates the missing
+  /// `categoryId`/`description` keys).
+  ///
+  /// [active] is `'all'` (default), `'true'`, or `'false'` per the
+  /// backend zod query (`active` enum); sent only when not `'all'`.
+  Future<Map<String, dynamic>> listProducts({
+    String? search,
+    String active = 'all',
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final resp = await dio.get<dynamic>(
+      '/admin/products',
+      queryParameters: <String, dynamic>{
+        if (search != null && search.trim().isNotEmpty)
+          'search': search.trim(),
+        if (active != 'all') 'active': active,
+        'page': page,
+        'limit': limit,
+      },
+    );
+    return resp.data as Map<String, dynamic>;
+  }
+
+  /// Hard-deletes via `DELETE /admin/products/:id` (returns the
+  /// decoded `{deleted:true}` map). A `409` (`has_orders`) propagates
+  /// as a [DioException] — callers show the deactivate-instead hint.
+  Future<Map<String, dynamic>> deleteProduct(int id) async {
+    final resp = await dio.delete<dynamic>('/admin/products/$id');
+    return resp.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> createProduct(
       Map<String, dynamic> body) async {
     final resp = await dio.post<dynamic>('/admin/products', data: body);
@@ -234,7 +277,10 @@ class AdminApi {
     return resp.data as Map<String, dynamic>;
   }
 
-  /// Soft-deactivates (`isActive=false`); no hard delete on the backend.
+  /// Legacy soft-deactivate path used by [ProductEditorScreen].
+  /// NOTE (Task 1): the backend `DELETE` now HARD-deletes (and `409`s
+  /// when orders reference the product); the products tab deactivates
+  /// via `PATCH {isActive:false}` ([updateProduct]) instead.
   Future<Map<String, dynamic>> deactivateProduct(int id) async {
     final resp = await dio.delete<dynamic>('/admin/products/$id');
     return resp.data as Map<String, dynamic>;

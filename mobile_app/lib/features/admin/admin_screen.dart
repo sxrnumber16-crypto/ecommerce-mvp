@@ -34,7 +34,7 @@ Map<String, int> _statusOf(Object? v) {
 /// [AppCard]s (`users`, `products`/`activeProducts`, total orders,
 /// `revenue` from `GET /admin/dashboard`) plus analytics charts from
 /// `GET /admin/analytics` ([AnalyticsCharts]) and entry points to
-/// product create/edit and the admin orders list.
+/// product create/edit, the admin products tab, and the admin orders list.
 ///
 /// Data flow mirrors the legacy screen: a dashboard future plus an
 /// analytics future keyed by the selected day-range, `_reload` for
@@ -186,6 +186,14 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                           label: 'নতুন পণ্য / New',
                           onPressed: () =>
                               context.push('/admin/products/new'),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpace.s),
+                      Expanded(
+                        child: AppButton(
+                          label: 'পণ্য / Products',
+                          outlined: true,
+                          onPressed: () => context.push('/admin/products'),
                         ),
                       ),
                       const SizedBox(width: AppSpace.s),

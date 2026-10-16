@@ -11,6 +11,7 @@ import 'features/admin/admin_gate.dart';
 import 'features/admin/admin_screen.dart';
 import 'features/admin/orders_admin_screen.dart';
 import 'features/admin/product_editor_screen.dart';
+import 'features/admin/products_admin_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
 import 'features/cart/address_screen.dart';
@@ -33,7 +34,8 @@ import 'features/splash/splash_screen.dart';
 /// redirect to `/home` unless `role == admin`.
 /// Sub-routes live inside the shell so the nav bar persists:
 /// `/product/:id`, `/cart/address`, `/cart/checkout`, `/orders/:id`,
-/// `/admin/products/new`, `/admin/products/:id/edit`, `/admin/orders`.
+/// `/admin/products`, `/admin/products/new`, `/admin/products/:id/edit`,
+/// `/admin/orders`.
 ///
 /// Stability: the [GoRouter] instance is created ONCE. Auth changes are
 /// surfaced via [authRefreshProvider] as `refreshListenable` (redirects
@@ -163,6 +165,13 @@ final routerProvider = Provider<GoRouter>((ref) {
               child: AdminScreen(),
             ),
             routes: <RouteBase>[
+              GoRoute(
+                path: 'products',
+                builder: (context, state) => const AdminGate(
+                  fallback: AdminDenied(),
+                  child: ProductsAdminScreen(),
+                ),
+              ),
               GoRoute(
                 path: 'products/new',
                 builder: (context, state) => const AdminGate(
