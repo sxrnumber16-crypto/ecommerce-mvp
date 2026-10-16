@@ -120,6 +120,50 @@ jobs:
           grep -r google-services android/settings.gradle* android/app/build.gradle* \
             || (echo "GMS plugin application FAILED" >&2; exit 1)
 
+      - name: Enable core library desugaring (flutter_local_notifications)
+        run: |
+          python3 - <<'EOF'
+          import glob
+
+          DESUGAR = "com.android.tools:desugar_jdk_libs:2.1.4"
+
+          paths = glob.glob("android/app/build.gradle*")
+          assert paths, "no android/app/build.gradle* found"
+          for path in paths:
+              with open(path) as f:
+                  src = f.read()
+              if "desugar_jdk_libs" in src:
+                  print(f"{path}: desugaring already present")
+                  continue
+              kts = path.endswith(".kts")
+              old = "compileOptions {"
+              assert old in src, f"{path}: compileOptions block not found"
+              if kts:
+                  src = src.replace(
+                      old,
+                      old + "\n        isCoreLibraryDesugaringEnabled = true",
+                      1,
+                  )
+                  addition = (f'\ndependencies {{\n'
+                              f'    coreLibraryDesugaring("{DESUGAR}")\n'
+                              f'}}\n')
+              else:
+                  src = src.replace(
+                      old,
+                      old + "\n        coreLibraryDesugaringEnabled true",
+                      1,
+                  )
+                  addition = (f"\ndependencies {{\n"
+                              f"    coreLibraryDesugaring '{DESUGAR}'\n"
+                              f"}}\n")
+              src = src.rstrip("\n") + "\n" + addition
+              with open(path, "w") as f:
+                  f.write(src)
+              print(f"{path}: desugaring enabled")
+          EOF
+          grep -r "desugar_jdk_libs" android/app/build.gradle* \
+            || (echo "desugaring FAILED" >&2; exit 1)
+
       - name: Ensure INTERNET permission (release builds need it explicit)
         run: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
