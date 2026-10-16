@@ -109,6 +109,11 @@ authRouter.post("/login", loginLimiter, async (req: Request, res: Response) => {
     return;
   }
 
+  if (user.status !== "active") {
+    res.status(401).json({ error: "suspended" });
+    return;
+  }
+
   const refreshToken = signRefreshToken(user.id);
   await prisma.refreshSession.create({
     data: { userId: user.id, tokenHash: hashToken(refreshToken), expiresAt: refreshExpiresAt() },

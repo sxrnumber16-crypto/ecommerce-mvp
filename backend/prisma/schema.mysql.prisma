@@ -12,6 +12,7 @@ model User {
   email        String           @unique
   passwordHash String
   role         String           @default("customer")
+  status       String           @default("active")
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
   profile      CustomerProfile?

@@ -42,6 +42,16 @@ checkoutRouter.post("/checkout", async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const { addressId, items: rawItems, idempotencyKey } = parsed.data;
 
+  const dbUser = await prisma.user.findUnique({ where: { id: userId } });
+  if (!dbUser) {
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+  if (dbUser.status !== "active") {
+    res.status(403).json({ error: "suspended" });
+    return;
+  }
+
   // Aggregate duplicate productIds: sum qty per product, cap summed total at 10.
   const qtyByProduct = new Map<number, number>();
   for (const it of rawItems) {

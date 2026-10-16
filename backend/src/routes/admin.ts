@@ -421,3 +421,158 @@ adminRouter.patch("/orders/:id/payment", async (req: Request, res: Response) => 
     payment: { status: updatedPayment.status, method: updatedPayment.method },
   });
 });
+
+const customersQuerySchema = z.object({
+  search: z.string().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(12),
+});
+
+const customerStatusSchema = z.object({
+  status: z.enum(["active", "suspended"]),
+});
+
+adminRouter.get("/customers", async (req: Request, res: Response) => {
+  const parsed = customersQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: "validation", details: parsed.error.flatten() });
+    return;
+  }
+  const { page, limit } = parsed.data;
+  const q = parsed.data.search?.trim();
+  const where: any = {};
+  if (q) {
+    where.OR = [
+      { email: { contains: q } },
+      { profile: { fullName: { contains: q } } },
+      { profile: { phone: { contains: q } } },
+    ];
+  }
+  const [total, users] = await Promise.all([
+    prisma.user.count({ where }),
+    prisma.user.findMany({
+      where,
+      orderBy: { id: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        profile: { select: { fullName: true, phone: true } },
+      },
+    }),
+  ]);
+  const items = await Promise.all(
+    users.map(async (u) => {
+      const [orderCount, spent] = await Promise.all([
+        prisma.order.count({ where: { userId: u.id } }),
+        prisma.order.aggregate({
+          where: { userId: u.id, status: { not: "cancelled" } },
+          _sum: { total: true },
+        }),
+      ]);
+      return {
+        id: u.id,
+        email: u.email,
+        role: u.role,
+        status: u.status,
+        fullName: u.profile?.fullName ?? null,
+        phone: u.profile?.phone ?? null,
+        orderCount,
+        totalSpent: spent._sum.total ?? 0,
+      };
+    }),
+  );
+  res.status(200).json({ items, page, limit, total });
+});
+
+adminRouter.get("/customers/:id", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) {
+    res.status(404).json({ error: "not found" });
+    return;
+  }
+  const user = await prisma.user.findUnique({
+    where: { id },
+    include: {
+      profile: true,
+      addresses: true,
+      orders: {
+        orderBy: { id: "desc" },
+        select: {
+          id: true,
+          total: true,
+          status: true,
+          createdAt: true,
+          payment: { select: { method: true, status: true, amount: true } },
+        },
+      },
+    },
+  });
+  if (!user) {
+    res.status(404).json({ error: "not found" });
+    return;
+  }
+  const paymentsList = user.orders.map((o) => o.payment).filter((p) => p !== null);
+  const paidList = paymentsList.filter((p) => p.status === "paid");
+  const unpaidList = paymentsList.filter((p) => p.status !== "paid");
+  const sum = (rows: Array<{ amount: number }>) => rows.reduce((acc, p) => acc + p.amount, 0);
+  const totalSpent = user.orders
+    .filter((o) => o.status !== "cancelled")
+    .reduce((acc, o) => acc + o.total, 0);
+  res.status(200).json({
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+    createdAt: user.createdAt,
+    profile: user.profile,
+    addresses: user.addresses,
+    orders: user.orders,
+    payments: {
+      count: paymentsList.length,
+      total: sum(paymentsList),
+      paid: paidList.length,
+      unpaid: unpaidList.length,
+      paidTotal: sum(paidList),
+      unpaidTotal: sum(unpaidList),
+    },
+    orderCount: user.orders.length,
+    totalSpent,
+  });
+});
+
+adminRouter.patch("/customers/:id/status", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) {
+    res.status(404).json({ error: "not found" });
+    return;
+  }
+  const parsed = customerStatusSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "validation", details: parsed.error.flatten() });
+    return;
+  }
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target) {
+    res.status(404).json({ error: "not found" });
+    return;
+  }
+  if (req.user!.id === id) {
+    res.status(409).json({ error: "cannot suspend self" });
+    return;
+  }
+  if (target.role === "admin") {
+    res.status(403).json({ error: "forbidden" });
+    return;
+  }
+  const updated = await prisma.user.update({
+    where: { id },
+    data: { status: parsed.data.status },
+    select: { id: true, email: true, role: true, status: true },
+  });
+  res.status(200).json(updated);
+});
