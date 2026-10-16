@@ -21,7 +21,7 @@ user-created Firebase project).
   `"ordersByStatus":{...},"lowStock":[{id,name,stock}] (stock<=5, active)}`
 - `daily`/`topProducts` EXCLUDE cancelled orders; revenue = sum(order.total).
 - Days with zero activity appear with zeros (continuous series for charts).
-- Date bucketing in server local day (documented; single-shop MVP).
+- Date bucketing on UTC day boundaries (consistent labels in any server timezone; single-shop MVP).
 
 ### 3.2 `PATCH /api/v1/admin/orders/:id/payment` (requireAdmin)
 - Body `{status: "paid"|"unpaid"}` (zod enum), else 400/404.

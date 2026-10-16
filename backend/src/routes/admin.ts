@@ -99,10 +99,15 @@ adminRouter.get("/analytics", async (req: Request, res: Response) => {
     res.status(400).json({ error: "days must be 1-90" });
     return;
   }
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const start = new Date(today);
-  start.setDate(start.getDate() - (days - 1));
+  // Day buckets use UTC boundaries so series labels and order keys
+  // always agree regardless of server timezone (local-midnight labels
+  // shifted a day behind UTC dates in UTC+X zones and dropped "today").
+  const now = new Date();
+  const todayUTC = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  const start = new Date(todayUTC);
+  start.setUTCDate(start.getUTCDate() - (days - 1));
 
   const orders = await prisma.order.findMany({
     where: { createdAt: { gte: start }, status: { not: "cancelled" } },
@@ -111,7 +116,7 @@ adminRouter.get("/analytics", async (req: Request, res: Response) => {
   const dailyMap = new Map<string, { orders: number; revenue: number }>();
   for (let i = 0; i < days; i++) {
     const d = new Date(start);
-    d.setDate(d.getDate() + i);
+    d.setUTCDate(d.getUTCDate() + i);
     dailyMap.set(d.toISOString().slice(0, 10), { orders: 0, revenue: 0 });
   }
   for (const o of orders) {
