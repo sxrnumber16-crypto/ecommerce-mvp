@@ -34,7 +34,17 @@ void main() {
     );
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(body: design_card.ProductCard(product: product)),
+        home: Scaffold(
+          // Constrain to a grid-cell width like real usage; an
+          // unconstrained full-screen width would overflow vertically
+          // because of the square image.
+          body: Center(
+            child: SizedBox(
+              width: 200,
+              child: design_card.ProductCard(product: product),
+            ),
+          ),
+        ),
       ),
     );
     expect(find.text('Test Saree'), findsOneWidget);
