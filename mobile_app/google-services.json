@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "771315734516",
+    "project_id": "orvix-shop",
+    "storage_bucket": "orvix-shop.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:771315734516:android:b70b9046421ff459f60ba1",
+        "android_client_info": {
+          "package_name": "com.example.myapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBrMT1EogSjAyAnUh-QwcL9hCkTk-xuIIc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
