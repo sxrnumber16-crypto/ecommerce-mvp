@@ -129,7 +129,7 @@ model RefreshSession {
 model DeviceToken {
   id        Int      @id @default(autoincrement())
   userId    Int
-  token     String   @unique
+  token     String   @unique @db.VarChar(255)
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
