@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'api_client.dart';
+import 'push_service.dart';
 
 /// Immutable auth state held by [AuthStore].
 class AuthState {
@@ -54,8 +55,11 @@ class AuthState {
 /// `refreshToken` so [ApiClient]'s auth interceptor can attach them.
 class AuthStore extends StateNotifier<AuthState> {
   final ApiClient api;
+  final PushService? _push;
 
-  AuthStore(this.api) : super(const AuthState());
+  AuthStore(this.api, {PushService? push})
+      : _push = push,
+        super(const AuthState());
 
   Future<void> loadFromStorage() async {
     try {
@@ -137,6 +141,10 @@ class AuthStore extends StateNotifier<AuthState> {
         await me();
       } catch (_) {}
       state = state.copyWith(isLoading: false);
+      // Push: sync FCM token now that a session exists (best-effort).
+      try {
+        await _push?.registerToken();
+      } catch (_) {}
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: _errorOf(e));
@@ -170,6 +178,10 @@ class AuthStore extends StateNotifier<AuthState> {
         role: user?['role'] as String?,
       );
       state = state.copyWith(isLoading: false);
+      // Push: sync FCM token now that a session exists (best-effort).
+      try {
+        await _push?.registerToken();
+      } catch (_) {}
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: _errorOf(e));
@@ -236,6 +248,11 @@ class AuthStore extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    // Push first: DELETE /devices is authed, so it must run BEFORE the
+    // local tokens are cleared. Best-effort; never blocks logout.
+    try {
+      await _push?.unregister();
+    } catch (_) {}
     final logoutData = <String, dynamic>{};
     final rt = state.refreshToken;
     if (rt != null) logoutData['refreshToken'] = rt;
@@ -258,5 +275,6 @@ class AuthStore extends StateNotifier<AuthState> {
 final authStoreProvider =
     StateNotifierProvider<AuthStore, AuthState>((ref) {
   final api = ref.watch(apiClientProvider);
-  return AuthStore(api);
+  final push = ref.watch(pushServiceProvider);
+  return AuthStore(api, push: push);
 });
