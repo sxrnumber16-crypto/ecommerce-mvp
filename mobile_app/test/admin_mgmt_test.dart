@@ -91,7 +91,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Rahim Uddin'), findsOneWidget);
-      expect(find.text('karim@example.com'), findsOneWidget);
+      // Karim has no profile fullName, so the row falls back to the email
+      // as the title AND shows the email line: 2 matching widgets.
+      expect(find.text('karim@example.com'), findsNWidgets(2));
       // Suspended badge (red) on the suspended row only.
       expect(find.text('স্থগিত / Suspended'), findsOneWidget);
       expect(find.text('সক্রিয় / Active'), findsOneWidget);
