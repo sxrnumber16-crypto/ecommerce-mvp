@@ -55,6 +55,10 @@ jobs:
               if "com.google.gms.google-services" in src:
                   print(f"{path}: already patched")
                   return src
+              # Settings files: declare the versioned plugin ONCE (apply false).
+              # The plugin itself is applied in the app module only — adding
+              # an unversioned id here too would double-request it in KTS
+              # scaffolds (single top-level plugins block) and fail the build.
               if kind == "settings-groovy":
                   old = 'id "com.android.application" version "'
                   assert old in src, f"{path}: unexpected Groovy settings shape"
@@ -63,15 +67,6 @@ jobs:
                       f'id "com.google.gms.google-services" version "{GMS_VERSION}" apply false\n        id "com.android.application" version "',
                       1,
                   )
-                  # Top-level plugins block is the LAST `plugins {` block;
-                  # insert the unversioned id before its closing brace.
-                  idx = src.rfind("plugins {")
-                  assert idx != -1, f"{path}: top-level plugins block missing"
-                  close = src.find("\n}", idx)
-                  assert close != -1, f"{path}: plugins block never closed"
-                  src = (src[:close]
-                         + '\n    id "com.google.gms.google-services"'
-                         + src[close:])
               elif kind == "settings-kts":
                   old = 'id("com.android.application") version "'
                   assert old in src, f"{path}: unexpected KTS settings shape"
@@ -80,13 +75,6 @@ jobs:
                       f'id("com.google.gms.google-services") version "{GMS_VERSION}" apply false\n        id("com.android.application") version "',
                       1,
                   )
-                  idx = src.rfind("plugins {")
-                  assert idx != -1, f"{path}: top-level plugins block missing"
-                  close = src.find("\n}", idx)
-                  assert close != -1, f"{path}: plugins block never closed"
-                  src = (src[:close]
-                         + '\n    id("com.google.gms.google-services")'
-                         + src[close:])
               elif kind == "app-groovy":
                   lines = src.splitlines(keepends=True)
                   out, in_plugins, done = [], False, False
