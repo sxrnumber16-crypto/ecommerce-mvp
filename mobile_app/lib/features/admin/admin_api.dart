@@ -278,12 +278,12 @@ class AdminApi {
   }
 
   /// Legacy soft-deactivate path used by [ProductEditorScreen].
-  /// NOTE (Task 1): the backend `DELETE` now HARD-deletes (and `409`s
-  /// when orders reference the product); the products tab deactivates
-  /// via `PATCH {isActive:false}` ([updateProduct]) instead.
+  /// SAFE (Task 3 fix round 1): now deactivates via
+  /// `PATCH /admin/products/:id {isActive:false}` ([updateProduct]) —
+  /// never `DELETE`. The products tab hard-deletes only via
+  /// [deleteProduct] (409-guarded).
   Future<Map<String, dynamic>> deactivateProduct(int id) async {
-    final resp = await dio.delete<dynamic>('/admin/products/$id');
-    return resp.data as Map<String, dynamic>;
+    return updateProduct(id, <String, dynamic>{'isActive': false});
   }
 
   Future<PagedAdminOrders> listOrders({int page = 1, int limit = 20}) async {

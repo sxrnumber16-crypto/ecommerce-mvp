@@ -21,12 +21,13 @@ import 'admin_gate.dart';
 /// `POST /admin/products` and `PATCH /admin/products/:id`: `name`,
 /// `categoryId`, `priceBdt`, `stock`, `imageUrl`, `isActive` (plus
 /// optional `slug`). Edit mode also offers a deactivate button
-/// (`DELETE` soft-sets `isActive=false`). Guarded by [AdminGate].
+/// (`PATCH {isActive:false}`). Guarded by [AdminGate].
 ///
 /// Payload logic is identical to the legacy screen: [_body] (imageUrl
 /// empty→`''` on edit / omitted on create, slug omitted on create when
 /// blank and sent on edit only when changed), [_save] (create vs
-/// update + same SnackBars), [_deactivate] (confirm dialog + `DELETE`),
+/// update + same SnackBars), [_deactivate] (confirm dialog + `PATCH`
+/// `{isActive:false}`),
 /// and the inactive-product 404 → admin re-activation workaround
 /// (`PATCH {isActive:true}` then reload via [_reactivate], keeping the
 /// cached `_product`/controllers so the form still renders). Blue
@@ -231,7 +232,8 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
     if (confirm != true) return;
     setState(() => _saving = true);
     try {
-      await ref.read(adminApiProvider).deactivateProduct(widget.productId!);
+      await ref.read(adminApiProvider).updateProduct(
+          widget.productId!, <String, dynamic>{'isActive': false});
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('নিষ্ক্রিয় করা হয়েছে / Deactivated')));
