@@ -177,7 +177,152 @@ class PagedAdminOrders {
   }
 }
 
-/// Order statuses accepted by `PATCH /admin/orders/:id/status`.
+/// Customer row from `GET /admin/customers`:
+/// `{id, email, role, status, fullName, phone, orderCount, totalSpent}`.
+class AdminCustomer {
+  final int id;
+  final String email;
+  final String role;
+  final String status;
+  final String? fullName;
+  final String? phone;
+  final int orderCount;
+  final int totalSpent;
+
+  const AdminCustomer({
+    required this.id,
+    required this.email,
+    required this.role,
+    required this.status,
+    this.fullName,
+    this.phone,
+    required this.orderCount,
+    required this.totalSpent,
+  });
+
+  factory AdminCustomer.fromJson(Map<String, dynamic> json) {
+    int asInt(Object? v) => v is num ? v.toInt() : 0;
+    return AdminCustomer(
+      id: asInt(json['id']),
+      email: json['email'] as String? ?? '',
+      role: json['role'] as String? ?? 'customer',
+      status: json['status'] as String? ?? 'active',
+      fullName: json['fullName'] as String?,
+      phone: json['phone'] as String?,
+      orderCount: asInt(json['orderCount']),
+      totalSpent: asInt(json['totalSpent']),
+    );
+  }
+
+  /// Display name: profile full name when present, else the email.
+  String get displayName {
+    final name = (fullName ?? '').trim();
+    return name.isEmpty ? email : name;
+  }
+
+  bool get isSuspended => status == 'suspended';
+}
+
+/// Paginated envelope from `GET /admin/customers`
+/// (`{items, page, limit, total}`).
+class PagedAdminCustomers {
+  final List<AdminCustomer> items;
+  final int page;
+  final int limit;
+  final int total;
+
+  const PagedAdminCustomers({
+    required this.items,
+    required this.page,
+    required this.limit,
+    required this.total,
+  });
+
+  factory PagedAdminCustomers.fromJson(Map<String, dynamic> json) {
+    int asInt(Object? v, int fallback) => v is num ? v.toInt() : fallback;
+    final raw = json['items'];
+    return PagedAdminCustomers(
+      items: raw is List
+          ? raw
+              .whereType<Map<String, dynamic>>()
+              .map(AdminCustomer.fromJson)
+              .toList()
+          : const [],
+      page: asInt(json['page'], 1),
+      limit: asInt(json['limit'], 20),
+      total: asInt(json['total'], 0),
+    );
+  }
+}
+
+/// Customer detail from `GET /admin/customers/:id`:
+/// `{id, email, role, status, createdAt, profile, addresses, orders,
+/// payments{count,total,paid,unpaid,paidTotal,unpaidTotal},
+/// orderCount, totalSpent}`.
+class AdminCustomerDetail {
+  final int id;
+  final String email;
+  final String role;
+  final String status;
+  final String createdAt;
+  final Map<String, dynamic>? profile;
+  final List<Map<String, dynamic>> addresses;
+  final List<Map<String, dynamic>> orders;
+  final Map<String, dynamic> payments;
+  final int orderCount;
+  final int totalSpent;
+
+  const AdminCustomerDetail({
+    required this.id,
+    required this.email,
+    required this.role,
+    required this.status,
+    required this.createdAt,
+    this.profile,
+    required this.addresses,
+    required this.orders,
+    required this.payments,
+    required this.orderCount,
+    required this.totalSpent,
+  });
+
+  factory AdminCustomerDetail.fromJson(Map<String, dynamic> json) {
+    int asInt(Object? v) => v is num ? v.toInt() : 0;
+    List<Map<String, dynamic>> rows(Object? v) =>
+        v is List ? v.whereType<Map<String, dynamic>>().toList() : const [];
+    final profile = json['profile'];
+    final payments = json['payments'];
+    return AdminCustomerDetail(
+      id: asInt(json['id']),
+      email: json['email'] as String? ?? '',
+      role: json['role'] as String? ?? 'customer',
+      status: json['status'] as String? ?? 'active',
+      createdAt: json['createdAt'] as String? ?? '',
+      profile: profile is Map<String, dynamic> ? profile : null,
+      addresses: rows(json['addresses']),
+      orders: rows(json['orders']),
+      payments: payments is Map<String, dynamic>
+          ? payments
+          : const <String, dynamic>{},
+      orderCount: asInt(json['orderCount']),
+      totalSpent: asInt(json['totalSpent']),
+    );
+  }
+
+  String get fullName => profile?['fullName'] as String? ?? '';
+  String get phone => profile?['phone'] as String? ?? '';
+
+  /// Display name: profile full name when present, else the email.
+  String get displayName {
+    final name = fullName.trim();
+    return name.isEmpty ? email : name;
+  }
+
+  bool get isSuspended => status == 'suspended';
+}
+
+/// Customer statuses accepted by `PATCH /admin/customers/:id/status`.
+const adminCustomerStatuses = <String>['active', 'suspended'];
 const adminOrderStatuses = <String>[
   'pending',
   'confirmed',
@@ -208,6 +353,9 @@ const adminPaymentStatuses = <String>['paid', 'unpaid'];
 /// - `PATCH /admin/orders/:id/status` `{status}`
 /// - `PATCH /admin/orders/:id/payment` `{status: paid|unpaid}`
 /// - `GET /admin/analytics?days=` (dashboard v2 charts).
+/// - `GET /admin/customers?search=&page=&limit=`
+/// - `GET /admin/customers/:id`
+/// - `PATCH /admin/customers/:id/status` `{status: active|suspended}`.
 class AdminApi {
   final Dio dio;
 
@@ -320,6 +468,45 @@ class AdminApi {
       return payment['status'] as String;
     }
     return status;
+  }
+
+  /// Customer list from `GET /admin/customers` (search matches email /
+  /// fullName / phone; newest first; decoded into [PagedAdminCustomers]).
+  Future<PagedAdminCustomers> listCustomers({
+    String? search,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final resp = await dio.get<dynamic>(
+      '/admin/customers',
+      queryParameters: <String, dynamic>{
+        if (search != null && search.trim().isNotEmpty)
+          'search': search.trim(),
+        'page': page,
+        'limit': limit,
+      },
+    );
+    return PagedAdminCustomers.fromJson(resp.data as Map<String, dynamic>);
+  }
+
+  /// Customer detail from `GET /admin/customers/:id` (info + addresses
+  /// + order history + payment aggregates + spent).
+  Future<AdminCustomerDetail> customerDetail(int id) async {
+    final resp = await dio.get<dynamic>('/admin/customers/$id');
+    return AdminCustomerDetail.fromJson(resp.data as Map<String, dynamic>);
+  }
+
+  /// Suspends/unsuspends via `PATCH /admin/customers/:id/status`
+  /// (`{status: active|suspended}`). Returns the decoded updated row
+  /// (`{id, email, role, status}`). `409` means self-suspend;
+  /// `403` means the target is an admin.
+  Future<Map<String, dynamic>> setCustomerStatus(
+      int id, String status) async {
+    final resp = await dio.patch<dynamic>(
+      '/admin/customers/$id/status',
+      data: <String, dynamic>{'status': status},
+    );
+    return resp.data as Map<String, dynamic>;
   }
 }
 

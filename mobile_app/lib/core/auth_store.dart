@@ -42,6 +42,20 @@ class AuthState {
   }
 }
 
+/// Shown when the backend rejects a login with `{error:"suspended"}`.
+/// Backend source: `POST /auth/login` returns `401 {error:"suspended"}`
+/// for `status != active`; suspended users are also blocked from
+/// checkout (`403 {error:"suspended"}`).
+const suspendedAccountMessage =
+    'অ্যাকাউন্ট স্থগিত / Account suspended — support-এ যোগাযোগ করুন';
+
+/// Maps a raw login/register error code to display copy. Only the
+/// `suspended` code is remapped — everything else passes through so
+/// callers can distinguish validation/credential failures.
+String loginErrorMessage(String? error) {
+  if (error == 'suspended') return suspendedAccountMessage;
+  return error ?? '';
+}
 /// Riverpod [StateNotifier] for session tokens + role.
 ///
 /// Endpoints (base `${Config.apiBaseUrl}/api/v1`, see [ApiClient]):
@@ -110,7 +124,11 @@ class AuthStore extends StateNotifier<AuthState> {
     if (e is DioException) {
       final data = e.response?.data;
       if (data is Map && data['error'] is String) {
-        return data['error'] as String;
+        final code = data['error'] as String;
+        // Suspended accounts are rejected with `401 {error:"suspended"}`:
+        // surface the bilingual support message instead of the raw code.
+        if (code == 'suspended') return suspendedAccountMessage;
+        return code;
       }
       return e.message ?? 'request failed';
     }

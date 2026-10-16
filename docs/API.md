@@ -46,7 +46,8 @@ GET /health
 { "email": "u@example.com", "password": "Secret123" }
 ```
 
-- `200` same shape as register. `400` validation, `401 invalid credentials`.
+- `200` same shape as register. `400` validation, `401 invalid credentials`,
+  `401 { "error": "suspended" }` when the account is suspended.
 
 ### Refresh — `POST /api/v1/auth/refresh`
 
@@ -207,6 +208,14 @@ Another user's orders never appear (scoped by `userId`).
 
 (`orders` and `totalRevenue` are aliases.) Low stock = `stock <= 5`, top 20.
 
+### List products — `GET /api/v1/admin/products?search=&active=&page=1&limit=12`
+
+- `active` enum `all | true | false` (default `all`); `search` matches
+  name/description/slug (contains); `limit` clamped 1–50 (default 12).
+- Includes **inactive** products (unlike the public catalog).
+- `200 { items, page, limit, total }`; each item embeds
+  `category: { "slug", "name" }`.
+
 ### Create product — `POST /api/v1/admin/products`
 
 ```json
@@ -223,7 +232,9 @@ Any subset of create fields. Same 400/409 rules; unknown id → `404`.
 
 ### Delete product — `DELETE /api/v1/admin/products/:id`
 
-Soft delete (`isActive: false`; hidden from public catalog). `200` updated row; `404`.
+Hard delete. `200 { "deleted": true }`; `404` unknown id.
+`409 { "error": "has_orders" }` when order items reference the product —
+callers offer deactivate via `PATCH` (`{ "isActive": false }`) instead.
 
 ### List orders — `GET /api/v1/admin/orders?page=1&limit=20`
 
@@ -256,6 +267,47 @@ Enum: `paid | unpaid` (COD only).
   `404` unknown id, `409` cancelled order locked
   (`{ "error": "order cancelled" }`) or non-COD method
   (`{ "error": "COD only" }`), `401` anon, `403` non-admin.
+
+### List customers — `GET /api/v1/admin/customers?search=&page=1&limit=12`
+
+- `search` matches email / profile fullName / phone (contains);
+  `limit` clamped 1–50 (default 12), newest first.
+- `200 { items, page, limit, total }`; each item:
+  ```json
+  { "id": 3, "email": "u@example.com", "role": "customer",
+    "status": "active", "fullName": "Ayesha", "phone": "017..",
+    "orderCount": 2, "totalSpent": 2500 }
+  ```
+  (`totalSpent` excludes cancelled orders.)
+
+### Customer detail — `GET /api/v1/admin/customers/:id`
+
+- `200` info + aggregates:
+  ```json
+  { "id": 3, "email": "u@example.com", "role": "customer",
+    "status": "active", "createdAt": "..", "profile": { "..": ".." },
+    "addresses": [], "orders": [{ "id": 7, "total": 1500,
+      "status": "delivered", "createdAt": "..",
+      "payment": { "method": "COD", "status": "paid" } }],
+    "payments": { "count": 1, "total": 1500, "paid": 1, "unpaid": 0,
+      "paidTotal": 1500, "unpaidTotal": 0 },
+    "orderCount": 1, "totalSpent": 1500 }
+  ```
+- Errors: `404` bad id / unknown user, `401` anon, `403` non-admin.
+
+### Update customer status — `PATCH /api/v1/admin/customers/:id/status`
+
+```json
+{ "status": "suspended" }
+```
+
+- Enum: `active | suspended`. Suspended users cannot log in
+  (`POST /auth/login` → `401 { "error": "suspended" }`) and cannot
+  check out (`403 { "error": "suspended" }`).
+- `200` updated row (`{ id, email, role, status }`).
+- Errors: `400` validation (bad id / bad or missing `status`),
+  `404` unknown id, `409 { "error": "cannot suspend self" }`,
+  `403` target is an admin, `401` anon, `403` non-admin.
 
 ### Analytics — `GET /api/v1/admin/analytics?days=14`
 

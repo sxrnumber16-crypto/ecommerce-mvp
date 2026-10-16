@@ -9,6 +9,8 @@ import 'design/theme.dart';
 import 'design/tokens/app_colors.dart';
 import 'features/admin/admin_gate.dart';
 import 'features/admin/admin_screen.dart';
+import 'features/admin/customer_detail_screen.dart';
+import 'features/admin/customers_admin_screen.dart';
 import 'features/admin/orders_admin_screen.dart';
 import 'features/admin/product_editor_screen.dart';
 import 'features/admin/products_admin_screen.dart';
@@ -35,7 +37,7 @@ import 'features/splash/splash_screen.dart';
 /// Sub-routes live inside the shell so the nav bar persists:
 /// `/product/:id`, `/cart/address`, `/cart/checkout`, `/orders/:id`,
 /// `/admin/products`, `/admin/products/new`, `/admin/products/:id/edit`,
-/// `/admin/orders`.
+/// `/admin/orders`, `/admin/customers`, `/admin/customers/:id`.
 ///
 /// Stability: the [GoRouter] instance is created ONCE. Auth changes are
 /// surfaced via [authRefreshProvider] as `refreshListenable` (redirects
@@ -195,6 +197,24 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => const AdminGate(
                   fallback: AdminDenied(),
                   child: OrdersAdminScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'customers',
+                builder: (context, state) => const AdminGate(
+                  fallback: AdminDenied(),
+                  child: CustomersAdminScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'customers/:id',
+                builder: (context, state) => AdminGate(
+                  fallback: const AdminDenied(),
+                  child: CustomerDetailScreen(
+                    customerId: int.tryParse(
+                            state.pathParameters['id'] ?? '') ??
+                        0,
+                  ),
                 ),
               ),
             ],

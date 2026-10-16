@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/auth_store.dart';
+import '../../core/auth_store.dart'
+    show authStoreProvider, loginErrorMessage;
 import '../../core/config.dart';
 import '../../design/components/app_button.dart';
 import '../../design/components/app_input.dart';
@@ -123,7 +124,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               if (auth.error != null) ...[
                 const SizedBox(height: AppSpace.m),
                 Text(
-                  auth.error!,
+                  // Suspended accounts are rejected with
+                  // `401 {error:"suspended"}` ([AuthStore] already maps the
+                  // code, but remap defensively in case a raw code slips
+                  // through) — show the bilingual support message.
+                  loginErrorMessage(auth.error),
                   style: TextStyle(color: scheme.error),
                 ),
               ],
