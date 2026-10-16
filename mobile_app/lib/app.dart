@@ -23,7 +23,6 @@ import 'features/cart/checkout_screen.dart';
 import 'features/cart/confirmation_screen.dart';
 import 'features/catalog/product_detail_screen.dart';
 import 'features/catalog/search_screen.dart';
-import 'features/diagnostics/network_diagnostics_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
 import 'features/orders/order_detail_screen.dart';
@@ -93,10 +92,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
-      ),
-      GoRoute(
-        path: '/diagnostics',
-        builder: (context, state) => const NetworkDiagnosticsScreen(),
       ),
       ShellRoute(
         builder: (context, state, child) => ScaffoldWithNav(child: child),

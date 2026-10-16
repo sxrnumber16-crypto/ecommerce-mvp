@@ -143,10 +143,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: const Text(
                     'অ্যাকাউন্ট নেই? রেজিস্টার করুন / Create account'),
               ),
-              TextButton(
-                onPressed: () => context.go('/diagnostics'),
-                child: const Text('নেটওয়ার্ক টেস্ট / Network test'),
-              ),
             ],
           ),
         ),

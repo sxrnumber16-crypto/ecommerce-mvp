@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:myapp/core/config.dart';
 import 'package:myapp/design/components/product_card.dart' as design_card;
 import 'package:myapp/features/catalog/models.dart';
-import 'package:myapp/shared/widgets/product_card.dart';
 
 void main() {
   test('api base defaults to Android-emulator host', () {
@@ -35,7 +34,7 @@ void main() {
     );
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(body: ProductCard(product: product)),
+        home: Scaffold(body: design_card.ProductCard(product: product)),
       ),
     );
     expect(find.text('Test Saree'), findsOneWidget);

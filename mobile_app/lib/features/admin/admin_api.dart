@@ -321,8 +321,6 @@ class AdminCustomerDetail {
   bool get isSuspended => status == 'suspended';
 }
 
-/// Customer statuses accepted by `PATCH /admin/customers/:id/status`.
-const adminCustomerStatuses = <String>['active', 'suspended'];
 const adminOrderStatuses = <String>[
   'pending',
   'confirmed',
@@ -330,9 +328,6 @@ const adminOrderStatuses = <String>[
   'delivered',
   'cancelled',
 ];
-
-/// Payment statuses accepted by `PATCH /admin/orders/:id/payment`.
-const adminPaymentStatuses = <String>['paid', 'unpaid'];
 
 /// Admin endpoints behind `requireAuth + requireAdmin` (see
 /// `backend/src/routes/admin.ts`):
