@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
+import { sendToTopic, sendToUser } from "../lib/push.js";
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
 
 export const adminRouter = Router();
@@ -201,6 +202,11 @@ adminRouter.post("/products", async (req: Request, res: Response) => {
     },
   });
   res.status(201).json(created);
+  void sendToTopic("new_products", {
+    title: `নতুন পণ্য / New: ${created.name}`,
+    body: `${created.priceBdt}৳ — এখনই দেখুন / Shop now`,
+    data: { type: "new_product", productId: String(created.id) },
+  });
 });
 
 adminRouter.patch("/products/:id", async (req: Request, res: Response) => {
@@ -321,6 +327,11 @@ adminRouter.patch("/orders/:id/status", async (req: Request, res: Response) => {
     },
   });
   res.status(200).json(updated);
+  void sendToUser(updated.userId, {
+    title: `অর্ডার আপডেট / Order update`,
+    body: `অর্ডার #${updated.id} এখন ${updated.status} / Order #${updated.id} is now ${updated.status}`,
+    data: { type: "order_update", orderId: String(updated.id), status: updated.status },
+  });
 });
 
 adminRouter.patch("/orders/:id/payment", async (req: Request, res: Response) => {
