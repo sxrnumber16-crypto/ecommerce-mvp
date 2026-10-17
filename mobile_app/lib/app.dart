@@ -277,13 +277,16 @@ class ScaffoldWithNav extends ConsumerWidget {
     final index = _indexFor(loc, paths.length).clamp(0, paths.length - 1);
     final cartCount = ref.watch(cartCountProvider);
     final navTheme = NavigationBarThemeData(
-      backgroundColor: AppColors.navyCard,
-      indicatorColor: AppColors.seed,
+      backgroundColor: AppColors.darkSurface,
+      indicatorColor: AppColors.seed.withValues(alpha: 0.22),
+      height: 72,
+      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       iconTheme: WidgetStateProperty.resolveWith(
         (states) => IconThemeData(
           color: states.contains(WidgetState.selected)
               ? Colors.white
               : AppColors.darkMuted,
+          size: states.contains(WidgetState.selected) ? 26 : 24,
         ),
       ),
       labelTextStyle: WidgetStateProperty.resolveWith(
@@ -291,6 +294,11 @@ class ScaffoldWithNav extends ConsumerWidget {
           color: states.contains(WidgetState.selected)
               ? Colors.white
               : AppColors.darkMuted,
+          fontSize: 11,
+          fontWeight: states.contains(WidgetState.selected)
+              ? FontWeight.w700
+              : FontWeight.w500,
+          letterSpacing: 0.2,
         ),
       ),
     );

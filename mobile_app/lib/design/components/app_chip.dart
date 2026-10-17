@@ -27,7 +27,11 @@ class AppChip extends StatelessWidget {
           vertical: AppSpace.s,
         ),
         decoration: BoxDecoration(
-          color: selected ? scheme.primary : scheme.surfaceContainerHighest,
+          color: selected ? scheme.primary : scheme.surface,
+          border: Border.all(
+            color: selected ? scheme.primary : scheme.outline.withValues(alpha: 0.5),
+            width: 1,
+          ),
           borderRadius: BorderRadius.circular(AppRadius.pill),
         ),
         child: Text(

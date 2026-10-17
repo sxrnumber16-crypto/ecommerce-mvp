@@ -31,5 +31,17 @@ ThemeData buildDarkTheme() {
     useMaterial3: true,
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.darkBackground,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: AppColors.darkBackground,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      centerTitle: false,
+    ),
+    dividerTheme: const DividerThemeData(
+      color: AppColors.darkOutline,
+      thickness: 1,
+      space: 1,
+    ),
   );
 }

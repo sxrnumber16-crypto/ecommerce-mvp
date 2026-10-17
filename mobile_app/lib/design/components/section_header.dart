@@ -19,17 +19,26 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpace.l,
-        vertical: AppSpace.s,
-      ),
+      padding: const EdgeInsets.only(bottom: AppSpace.s),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: AppText.headline(context)),
+          Text(
+            title,
+            style: AppText.headline(context).copyWith(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.1,
+            ),
+          ),
           if (actionLabel != null)
             TextButton(
               onPressed: onAction,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               child: Text(actionLabel!),
             ),
         ],
