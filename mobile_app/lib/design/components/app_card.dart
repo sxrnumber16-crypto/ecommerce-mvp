@@ -23,7 +23,7 @@ class AppCard extends StatelessWidget {
         color: scheme.surface,
         borderRadius: radius,
         border: Border.all(
-          color: scheme.primary.withValues(alpha: 0.25),
+          color: scheme.outline.withValues(alpha: 0.5),
           width: 1,
         ),
         boxShadow: AppShadow.card,

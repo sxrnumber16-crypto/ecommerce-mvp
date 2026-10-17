@@ -28,9 +28,12 @@ class AppInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final radius = BorderRadius.circular(AppRadius.card);
-    OutlineInputBorder border() =>
-        OutlineInputBorder(borderRadius: radius);
+    OutlineInputBorder border({Color? color}) => OutlineInputBorder(
+          borderRadius: radius,
+          borderSide: BorderSide(color: color ?? scheme.outline),
+        );
     return TextFormField(
       controller: controller,
       obscureText: obscure,
@@ -46,7 +49,7 @@ class AppInput extends StatelessWidget {
         ),
         border: border(),
         enabledBorder: border(),
-        focusedBorder: border(),
+        focusedBorder: border(color: scheme.primary),
       ),
     );
   }
