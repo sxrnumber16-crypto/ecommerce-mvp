@@ -25,12 +25,9 @@ class PromoBanner extends StatelessWidget {
     return Container(
       height: 160,
       decoration: BoxDecoration(
+        color: AppColors.darkSurface,
         borderRadius: BorderRadius.circular(AppRadius.card),
-        gradient: const LinearGradient(
-          colors: [AppColors.navyCard, AppColors.seed],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        border: Border.all(color: AppColors.darkOutline.withValues(alpha: 0.7)),
       ),
       child: Stack(
         children: [
@@ -53,23 +50,29 @@ class PromoBanner extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(title,
-                    style: AppText.headline(context)
-                        .copyWith(color: Colors.white)),
+                    style: AppText.headline(context).copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    )),
                 const SizedBox(height: AppSpace.xs),
                 Text(subtitle,
                     style: AppText.body(context)
-                        .copyWith(color: Colors.white70)),
-                const SizedBox(height: AppSpace.s),
-                ElevatedButton(
-                  onPressed: onCta,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: AppColors.seed,
-                    shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(AppRadius.pill)),
+                        .copyWith(color: AppColors.darkMuted)),
+                const SizedBox(height: AppSpace.m),
+                SizedBox(
+                  height: 36,
+                  child: ElevatedButton(
+                    onPressed: onCta,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.seed,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppRadius.pill)),
+                    ),
+                    child: Text(ctaLabel, style: const TextStyle(fontSize: 13)),
                   ),
-                  child: Text(ctaLabel),
                 ),
               ],
             ),
