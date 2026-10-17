@@ -219,9 +219,9 @@ class _DetailBody extends ConsumerWidget {
           child: Container(
             padding: const EdgeInsets.all(AppSpace.l),
             decoration: BoxDecoration(
-              color: AppColors.navyCard,
+              color: AppColors.darkSurface,
               border: Border(
-                top: BorderSide(color: scheme.surfaceContainerHighest),
+                top: BorderSide(color: AppColors.darkOutline.withValues(alpha: 0.7)),
               ),
             ),
             child: SizedBox(
