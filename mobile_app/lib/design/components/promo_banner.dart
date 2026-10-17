@@ -23,7 +23,7 @@ class PromoBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 148,
+      height: 160,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadius.card),
         gradient: const LinearGradient(

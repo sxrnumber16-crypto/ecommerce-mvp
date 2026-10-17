@@ -207,8 +207,8 @@ class _PromoCarousel extends StatelessWidget {
               ),
           ],
           options: CarouselOptions(
-            height: 148,
-            viewportFraction: 0.88,
+            height: 160,
+            viewportFraction: 0.92,
             enlargeCenterPage: true,
             autoPlay: categories.length > 1,
             autoPlayInterval: const Duration(seconds: 4),
