@@ -61,41 +61,51 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Container(
-                padding: const EdgeInsets.all(AppSpace.xl),
+                padding: const EdgeInsets.all(AppSpace.l),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.navyCard, AppColors.seed],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: AppColors.darkSurface,
                   borderRadius: BorderRadius.circular(AppRadius.card),
+                  border: Border.all(
+                    color: AppColors.darkOutline.withValues(alpha: 0.7),
+                  ),
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.storefront_outlined,
-                      size: 40,
-                      color: scheme.onPrimary,
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: AppColors.seed.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.storefront_outlined,
+                        color: AppColors.seed,
+                        size: 28,
+                      ),
                     ),
                     const SizedBox(height: AppSpace.m),
                     Text(
-                      Config.storeName,
-                      style: AppText.headline(context).copyWith(
-                        color: scheme.onPrimary,
+                      Config.storeName.toUpperCase(),
+                      textAlign: TextAlign.center,
+                      style: AppText.title(context).copyWith(
+                        color: Colors.white,
+                        letterSpacing: 2.2,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: AppSpace.s),
+                    const SizedBox(height: 4),
                     Text(
                       'স্বাগতম / Welcome back',
+                      textAlign: TextAlign.center,
                       style: AppText.body(context).copyWith(
-                        color: scheme.onPrimary.withValues(alpha: 0.85),
+                        color: AppColors.darkMuted,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: AppSpace.xl),
+              const SizedBox(height: AppSpace.l),
               AppInput(
                 controller: _email,
                 label: 'ইমেইল / Email',
@@ -124,15 +134,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               if (auth.error != null) ...[
                 const SizedBox(height: AppSpace.m),
                 Text(
-                  // Suspended accounts are rejected with
-                  // `401 {error:"suspended"}` ([AuthStore] already maps the
-                  // code, but remap defensively in case a raw code slips
-                  // through) — show the bilingual support message.
                   loginErrorMessage(auth.error),
                   style: TextStyle(color: scheme.error),
                 ),
               ],
-              const SizedBox(height: AppSpace.xl),
+              const SizedBox(height: AppSpace.l),
               AppButton(
                 label: 'লগইন / Login',
                 loading: auth.isLoading,
