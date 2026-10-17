@@ -22,8 +22,6 @@ ThemeData buildDarkTheme() {
     onSecondary: Colors.black,
     error: AppColors.error,
     onError: Colors.white,
-    background: AppColors.darkBackground,
-    onBackground: AppColors.darkText,
     surface: AppColors.darkSurface,
     onSurface: AppColors.darkText,
     outline: AppColors.darkOutline,
